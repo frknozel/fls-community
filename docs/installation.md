@@ -1,6 +1,6 @@
 # Temiz Ubuntu VM ile kurulum denemesi
 
-`v0.76.0-rc.4`, ayrı VM üzerinde uçtan uca kabul testi bekleyen bir test sürümüdür. RC3 ile temiz Ubuntu kurulumu, yönetici girişi ve tek disk envanteri doğrulandı; kayıt alımı, ikinci diske taşıma ve tam kurtarma kabulü sürüyor. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
+`v0.76.0-rc.4`, uçtan uca kabul testi henüz tamamlanmamış bir test sürümüdür. Ayrı bir VMware ESXi / Ubuntu 24.04 VM'de temiz kurulum, yönetici girişi, tek disk rolleri, `/srv/fls-server` yolları, yeniden başlatma sonrası panelin açılması ve durdurulmuş log alımının korunması kullanıcı tarafından doğrulandı. Log alımı daha sonra panelden başarıyla başlatıldı. Gerçek FortiGate kayıtlarının alınması, yedekler, ikinci diske taşıma ve tam kurtarma kabulü henüz bekliyor. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
 
 Bu sürümün mantıksal veri kökü `/srv/fls-server` dizinidir. MariaDB/indeksler ve geçici teslim kuyruğu sistem diskinde bu kökte tutulur. Ayrı depo diski `/srv/fls-storage` altında bağlanır; log ve yedek dizinleri bu depodan mantıksal köke bağlanır. RC3 veya daha eski bir denemeden geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; `--apply` yerinde güncelleme veya eski yedeği dönüştürme aracı değildir.
 
@@ -44,11 +44,37 @@ Kurucunun son sağlık kontrolü HTTPS/sürüm bilgisinin yanında disk işçisi
 
 1. `sudo cat /etc/fls/bootstrap-credentials.txt` ile ilk `admin` parolasını alın; panelde değiştirin. Parola çıktı günlüklerine basılmaz.
 2. Panelde tek sistem diski, boş olaylar ve **durdurulmuş log alımı** göründüğünü doğrulayın. Normal kullanıcıların disk/yedek/güç yönetimini göremediğini kontrol edin.
-3. Test FortiGate bağlantısı ve izinli gönderici ekleyin. Yönetimden alımı açıkça başlatın. TCP 5514'e gelen test kayıtlarının ham dosyada ve arayüzde göründüğünü doğrulayın. Cihazın hedef ayarını yalnız test ortamına yönlendirin.
-4. Yeniden başlatıp HTTPS, servisler ve aynı kayıtların tekrar eklenmeden okunmasını kontrol edin.
-5. Logsuz FLS System Backup ve günlük DB dump üretin; indirmeyi ve varsa test FTPS aktarımını sınayın. Şifreleme açılacaksa kurtarma özel anahtarını sunucu dışında saklayın.
-6. Yeni boş ikinci sanal disk ekleyip [taşıma denemesini](storage-migration.md) yapın. Sonra yeniden başlatma ve depo diski eksik olduğunda yazımın durması senaryolarını sınayın.
-7. Sorunda hata kodunu, kurulum aşamasını ve ilgili servis günlüklerini kaydedin; sırları paylaşmayın. Temiz snapshot'a dönün, düzeltilmiş sürümden tekrar başlayın. Başlamış/yarım kurulum otomatik tekrar edilmez.
+3. Yalnız test VM'sini yeniden başlatın. HTTPS, panel ve disk rollerini; log alımının hâlâ durdurulmuş olduğunu doğrulayın. Bu kurulu durumun ayrı bir snapshot'ını saklayın.
+4. **İlk kaynak iznini uygulamadan önce** Log sunucusu → Log alımı bölümünden alımı başlatın ve **Çalışıyor** durumunu bekleyin. Bu sürümde ilk kaynak izni uygulanırken alıcının çalışması gerekir.
+5. Test FortiGate'i doğru seri numarası ve VDOM adıyla ekleyin; cihaz **Hazırlık / devre dışı** durumunda kalabilir. İlk syslog denemesi için API anahtarı zorunlu değildir. Kaynak/gönderici iznini tanımlayın ve yönetici hesabına cihazı görüntüleme erişimini ayrıca verin; bunlar farklı izinlerdir.
+6. Aşağıdaki FortiGate ön kontrolünden sonra gerçekten boş bir ek syslog hedefi seçin. Mevcut çalışan FLS hedefini ve global/VDOM yönlendirmesini koruyarak test VM'sinin TCP 5514 portuna ek kopya gönderin. Gelen kayıtların ham dosyada ve arayüzde göründüğünü, indeksin ilerlediğini ve yazım/kuyruk hatası olmadığını doğrulayın. Alıcının **Çalışıyor** görünmesi tek başına gerçek log kabulü sayılmaz.
+7. Log alımı açıkken test VM'sini yeniden başlatın; HTTPS, servisler ve aynı kayıtların tekrar eklenmeden okunmasını kontrol edin.
+8. Logsuz FLS System Backup ve günlük DB dump üretin; indirmeyi ve varsa test FTPS aktarımını sınayın. Şifreleme açılacaksa kurtarma özel anahtarını sunucu dışında saklayın.
+9. Yeni boş ikinci sanal disk ekleyip [taşıma denemesini](storage-migration.md) yapın. Sonra yeniden başlatma ve depo diski eksik olduğunda yazımın durması senaryolarını sınayın.
+10. Sorunda hata kodunu, kurulum aşamasını ve ilgili servis günlüklerini kaydedin; sırları paylaşmayın. Temiz snapshot'a dönün, düzeltilmiş sürümden tekrar başlayın. Başlamış/yarım kurulum otomatik tekrar edilmez.
+
+### FortiGate'e ek test hedefi hazırlığı
+
+Önce FortiOS sürümünü ve VDOM çalışma biçimini salt okunur komutla öğrenin:
+
+```text
+get system status
+```
+
+Ardından mevcut dört syslog hedefini okuyun. VDOM kapalıysa cihazın normal CLI bağlamını, çoklu VDOM açıksa global bağlamı kullanın:
+
+```text
+show full-configuration log syslogd setting
+show full-configuration log syslogd2 setting
+show full-configuration log syslogd3 setting
+show full-configuration log syslogd4 setting
+```
+
+FLS'deki `root` VDOM adı, FortiGate'te çoklu VDOM'un kapalı olduğu anlamına gelmez. Çoklu VDOM açıksa ilgili VDOM'un `syslog-override` durumunu ve mevcut `override-setting` / `override-filter` ayarlarını da okuyun. Mevcut akışı anlamadan override açmayın veya global hedefi değiştirmeyin. Komut desteklenmiyorsa çıktısını ve CLI bağlamını kaydedin; başka bir yapılandırma uygulayarak aşmaya çalışmayın.
+
+Hedef adını önceden `syslogd2` olarak varsaymayın. Kapalı olsa bile sunucu adresi kayıtlı bir hedefin amacı önce netleştirilmelidir. Sürüm, VDOM bağlamı ve mevcut hedefler görüldükten sonra boş ek hedefe özgü komutları hazırlayın. [Fortinet: VDOM başına birden fazla syslog hedefi](https://docs.fortinet.com/document/fortigate/latest/administration-guide/610676/configuring-multiple-fortianalyzers-or-syslog-servers-per-vdom), [VDOM override davranışı](https://docs.fortinet.com/document/fortigate/7.2.7/administration-guide/557920/override-fortianalyzer-and-syslog-server-settings).
+
+Bu aşamada panelin API hesabı oluşturan tüm kurulum komutlarını çalıştırmak gerekmez. API bağlantısı sonradan eklenecekse örneğin `FLS_API_1` adlı hesap mevcut üretim FLS'si için kullanılıyorsa test kurulumu adına yeniden kullanılmamalıdır; test için ayrı hesap adı seçin.
 
 Root'a özel kurulum durumu `/var/lib/fls-community-install/journal.json` içindedir. Bir aşamaya geçmeden önce niyet kalıcı yazılır. Hata halinde önceki aşamalar otomatik geri alınmaz; bu VM kabul akışında temiz snapshot'a dönüş kullanılır. Başarılı kurulumun üzerine `--apply` güncelleme yöntemi değildir.
 

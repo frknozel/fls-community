@@ -2,7 +2,7 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.4 bir test sürümüdür.** Kurulum motoru, imzalı dağıtım paketi ve ikinci diske taşıma işçisi uygulanmıştır. Ayrı, temiz Ubuntu VM üzerinde baştan sona kabul testi henüz tamamlanmamıştır. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
+**0.76.0-rc.4 bir test sürümüdür.** Ayrı bir ESXi / Ubuntu 24.04 VM'de temiz kurulum, yönetici girişi, tek disk rolleri ve yeni veri yolları, yeniden başlatma sonrası panelin açılması ve durdurulmuş log alımının korunması kullanıcı tarafından doğrulandı. Alımın panelden başlatılması da başarılıdır. Gerçek FortiGate logları, yedekler, ikinci diske taşıma ve tam kurtarma kabulü henüz bekliyor; baştan sona kabul testi tamamlanmış değildir. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 
@@ -33,7 +33,9 @@ Kurucu paket imzasını ve dosya karmalarını doğrular; Ubuntu'nun PHP 8.3/Mar
 sudo cat /etc/fls/bootstrap-credentials.txt
 ```
 
-Panelde ilk girişte parola değiştirilir. Log alımı başlangıçta kapalıdır; FortiGate bağlantısını tanımladıktan sonra bakım ekranından açıkça başlatılır. Harici aktarım ve ücretli zaman damgası işleri kendiliğinden açılmaz.
+Panelde ilk girişte parola değiştirilir. Log alımı başlangıçta kapalıdır. Önce yeniden başlatma ve kapalı durumun korunduğunu sınayın; ardından **ilk kaynak iznini uygulamadan önce** Log sunucusu → Log alımı bölümünden başlatıp **Çalışıyor** durumunu bekleyin. FortiGate cihazı Hazırlık / devre dışı durumunda eklenebilir; ilk syslog denemesi için API anahtarı gerekmez. Gönderici izni ile kullanıcının cihazı görüntüleme erişimi ayrı tanımlanır. Harici aktarım ve ücretli zaman damgası işleri kendiliğinden açılmaz.
+
+Gerçek FortiGate'e ek test hedefi tanımlamadan önce sürüm, VDOM çalışma biçimi ve mevcut dört syslog hedefi okunmalıdır. Mevcut global/VDOM akışını koruyarak boş bir hedef seçin; `root` adı tek başına VDOM modunu göstermez. Üretim bağlantısının `FLS_API_1` gibi API hesap adlarını test kurulumu için yeniden kullanmayın. [Salt okunur ön kontrol ve kabul sırası](docs/installation.md#fortigatee-ek-test-hedefi-hazırlığı).
 
 Veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak kullanılır. RC3 veya önceki bir denemeden RC4'e geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; kurucu mevcut kurulumu yerinde güncellemez.
 

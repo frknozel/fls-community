@@ -4,7 +4,7 @@
   "version": "0.76.0",
   "release_tag": "v0.76.0-rc.4",
   "license": "Apache-2.0",
-  "stage": "release-candidate-awaiting-independent-vm",
+  "stage": "release-candidate-partial-independent-vm-acceptance",
   "automatic_installation_available": true,
   "curl_install_command_available": true,
   "second_disk_migration_execution_available": true,
@@ -14,9 +14,24 @@
   "collector_binary_distributed": "signed-release-asset",
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
-    "independent_snapshot_vm_clean_install_acceptance",
+    "independent_real_fortigate_log_ingestion_acceptance",
+    "independent_system_backup_acceptance",
     "independent_second_disk_migration_and_reboot_acceptance",
     "independent_full_restore_acceptance",
     "optional_provider_sdk_setup_and_acceptance"
-  ]
+  ],
+  "independent_vm_checks": {
+    "clean_install": "user_confirmed",
+    "administrator_login": "user_confirmed",
+    "single_disk_inventory": "user_confirmed",
+    "fls_server_data_root": "user_confirmed",
+    "reboot_and_panel_access": "user_confirmed",
+    "initial_collection_paused": "user_confirmed",
+    "manual_collection_start": "user_confirmed",
+    "real_fortigate_log_ingestion": "pending",
+    "system_backup_acceptance": "pending",
+    "second_disk_migration_and_reboot": "pending",
+    "full_restore": "pending"
+  },
+  "checks_updated_on": "2026-11-13"
 }
