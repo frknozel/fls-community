@@ -1,0 +1,8 @@
+[Unit]
+Description=FLS FTPS certificate alert history observation
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=5s
+[Install]
+WantedBy=timers.target

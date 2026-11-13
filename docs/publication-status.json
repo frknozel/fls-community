@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "edition": "community",
+  "version": "0.76.0",
+  "release_tag": "v0.76.0-rc.1",
+  "license": "Apache-2.0",
+  "stage": "release-candidate-awaiting-independent-vm",
+  "automatic_installation_available": true,
+  "curl_install_command_available": true,
+  "second_disk_migration_execution_available": true,
+  "separate_clean_ubuntu_acceptance_test_completed": false,
+  "public_source_does_not_include_system_backup": true,
+  "provider_sdk_distributed": false,
+  "collector_binary_distributed": "signed-release-asset",
+  "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
+  "pending": [
+    "independent_snapshot_vm_clean_install_acceptance",
+    "independent_second_disk_migration_and_reboot_acceptance",
+    "independent_full_restore_acceptance",
+    "optional_provider_sdk_setup_and_acceptance"
+  ]
+}

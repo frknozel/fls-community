@@ -1,0 +1,26 @@
+[Unit]
+Description=FLS administrator disk inventory and optional rsync mirror
+After=local-fs.target mariadb.service
+Requires=mariadb.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/var/www/fls
+ExecStart=/usr/bin/python3 /var/www/fls/bin/disk-management-worker.py
+StateDirectory=fls-disks
+StateDirectoryMode=0700
+UMask=0077
+TimeoutStartSec=infinity
+TimeoutStopSec=300
+SendSIGKILL=no
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+# Device preparation and mounts must affect the host namespace. Do not add
+# filesystem isolation that silently makes /srv/fls-mirror a private mount.
+PrivateDevices=no
+PrivateTmp=no
+PrivateMounts=no

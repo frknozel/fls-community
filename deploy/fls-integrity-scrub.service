@@ -1,0 +1,33 @@
+[Unit]
+Description=FLS bounded historical raw log integrity verification
+After=mariadb.service
+Requires=mariadb.service
+RequiresMountsFor=/srv/fortigate/raw /srv/fortigate/archive
+[Service]
+Type=oneshot
+User=fls-scrub
+Group=fls-scrub
+LoadCredential=integrity-scrub.json:/etc/fls/integrity-scrub.json
+StateDirectory=fls-integrity-scrub
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /var/www/fls/bin/integrity-scrub.py
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=10
+IOWeight=10
+MemoryMax=192M
+TimeoutStartSec=75
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/srv/fortigate/raw /srv/fortigate/archive/manifests
+ReadWritePaths=/var/lib/fls-integrity-scrub

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check FLS explicit administrator system power requests
+
+[Timer]
+OnBootSec=10s
+OnUnitInactiveSec=3s
+AccuracySec=1s
+Unit=fls-power.service
+
+[Install]
+WantedBy=timers.target

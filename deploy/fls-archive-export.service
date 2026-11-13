@@ -1,0 +1,29 @@
+[Unit]
+Description=FLS verified signed hourly archive packaging and remote backup
+After=mariadb.service network-online.target
+Requires=mariadb.service
+RequiresMountsFor=/srv/fortigate/raw /srv/fortigate/archive
+[Service]
+Type=oneshot
+User=fls-export
+Group=fls-export
+LoadCredential=database:/etc/fls/archive-export.json
+LoadCredential=master-key:/etc/fls/credential-key
+ExecStart=/usr/bin/python3 /var/www/fls/bin/archive-export.py --credential ${CREDENTIALS_DIRECTORY}/database --key ${CREDENTIALS_DIRECTORY}/master-key
+RuntimeDirectory=fls-archive-export
+UMask=0027
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=10
+IOWeight=10
+MemoryMax=512M
+TimeoutStartSec=900
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/srv/fortigate/raw /srv/fortigate/archive/manifests
+ReadWritePaths=/srv/fortigate/archive/packages
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+[Install]
+WantedBy=multi-user.target

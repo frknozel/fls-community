@@ -1,0 +1,24 @@
+FLS Community — FortiGate Log Sniffer
+Copyright 2026 FLS contributors.
+
+FLS-authored source is licensed under the Apache License, Version 2.0.
+See LICENSE. This grant does not relicense independent third-party software,
+provider SDKs, operating system packages, public trust roots, or trademarks.
+
+Go-built helper distributions must retain the Go BSD license reproduced in
+deploy/notices/GO-LICENSE and native/license/GO-LICENSE. The native helpers use
+the Go standard library; their source and build recipes are included.
+
+The separately executed rsyslog collector is not Apache-licensed by this
+project. Its pinned source provenance, local checked-write modification and
+GPL/LGPL notices are described in third_party/rsyslog/NOTICE. A collector binary
+is not distributed in this preparation snapshot.
+
+Public timestamp trust roots retain their original issuers and provenance in
+deploy/tsa/sources.json. Provider JAR files, vendor licenses, account material
+and service credits are not distributed here. The Java interoperability bridge
+is project source; it does not include the provider SDK.
+
+Python, PHP, MariaDB, nginx, OpenSSL and other system dependencies are separate
+projects with their own licenses. The preparation planner does not download or
+redistribute their packages.

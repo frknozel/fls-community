@@ -1,0 +1,11 @@
+[Unit]
+Description=FLS configuration database FTPS upload at 23:35 Istanbul
+
+[Timer]
+OnCalendar=*-*-* 23:35:00 Europe/Istanbul
+AccuracySec=1s
+Persistent=false
+Unit=fls-db-dump-upload.service
+
+[Install]
+WantedBy=timers.target

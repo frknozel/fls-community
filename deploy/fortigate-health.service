@@ -1,0 +1,15 @@
+[Unit]
+Description=FortiGate collector local health snapshot
+RequiresMountsFor=/srv/fortigate
+After=fortigate-collector.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/python3 /var/www/fls/bin/fls_storage.py
+ExecStart=/usr/bin/python3 /usr/local/libexec/fortigate-health.py
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/fortigate/metrics /run/lock/lvm /run/lvm

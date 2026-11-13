@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh FLS disk inventory and process confirmed mirror requests
+
+[Timer]
+OnBootSec=20s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+Unit=fls-disk-management.service
+
+[Install]
+WantedBy=timers.target

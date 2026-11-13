@@ -1,0 +1,21 @@
+[Unit]
+Description=FLS persistent FTPS certificate alert history
+After=mariadb.service
+Requires=mariadb.service
+[Service]
+Type=oneshot
+User=fls-tls-history
+Group=fls-tls-history
+LoadCredential=database:/etc/fls/archive-tls-history.json
+ExecStart=/usr/bin/php -d memory_limit=64M /var/www/fls/bin/archive-tls-history.php --credential ${CREDENTIALS_DIRECTORY}/database
+UMask=0077
+Nice=15
+CPUWeight=10
+MemoryMax=128M
+TimeoutStartSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+InaccessiblePaths=/srv/fortigate/raw /srv/fortigate/archive /etc/fls/private
+RestrictAddressFamilies=AF_UNIX

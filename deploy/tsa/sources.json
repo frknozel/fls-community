@@ -1,0 +1,66 @@
+{
+  "downloaded_at_utc": "2026-10-22T20:23:37.181634+00:00",
+  "official_client_zip_url": "https://kamusm.bilgem.tubitak.gov.tr/urunler/zaman_damgasi/dosyalar/tss-client-console-3.1.33.zip",
+  "official_client_zip_sha256": "eed4998593a415c5a6fe72ee1f3edcb5746e52b8de51b5571a15cf6c7677e9c3",
+  "roots": [
+    {
+      "provider": "kamusm",
+      "url": "https://sertifikalar.kamusm.gov.tr/nes/KOKSHS.V7.crt",
+      "sha256": "23044f859844c23a2d082e518627fe8d69f5b21a7f7af30ce204434c4055387d",
+      "subject": "CN=Kamu SM Kök Sertifika Hizmet Sağlayıcısı - Sürüm 7,O=TÜBİTAK BİLGEM Kamu Sertifikasyon Merkezi,ST=Kocaeli,C=TR",
+      "not_after": "2035-09-22 11:53:39"
+    },
+    {
+      "provider": "kamusm",
+      "url": "https://sertifikalar.kamusm.gov.tr/nes/kokshs.v6.crt",
+      "sha256": "aa466d3b528dc947c7e1dca594c0deb4a1d2b987c119125fcd7435de92a23c60",
+      "subject": "CN=Kamu SM Kök Sertifika Hizmet Sağlayıcısı - Sürüm 6,OU=BİLGEM,O=Türkiye Bilimsel ve Teknolojik Araştırma Kurumu - TÜBİTAK,L=Gebze - Kocaeli,C=TR",
+      "not_after": "2029-08-06 16:25:08"
+    },
+    {
+      "provider": "kamusm",
+      "url": "https://sertifikalar.kamusm.gov.tr/kurumsal/kurumsal-s2.crt",
+      "sha256": "82f01501cd76672c343502e0835ee9f0dc8d9fdbecdc6955a4304659a331393b",
+      "subject": "CN=KamuSM Kurumsal Kök Sertifika Hizmet Sağlayıcısı - Sürüm 2,OU=BİLGEM,O=Türkiye Bilimsel ve Teknolojik Araştırma Kurumu - TÜBİTAK,L=Gebze - Kocaeli,C=TR",
+      "not_after": "2042-08-11 08:35:24"
+    },
+    {
+      "provider": "kamusm",
+      "url": "https://sertifikalar.kamusm.gov.tr/kurumsal/Kurumsal-s1.crt",
+      "sha256": "dc2c797ead271a061178fbf554f56a53bdbf8d54727d7c3a885e209a73d52aa8",
+      "subject": "CN=KamuSM Kurumsal Kök Sertifika Hizmet Sağlayıcısı - Sürüm 1,OU=Kamu Sertifikasyon Merkezi,OU=Ulusal Elektronik ve Kriptoloji Araştırma Enstitüsü - UEKAE,O=Türkiye Bilimsel ve Teknolojik Araştırma Kurumu - TÜBİTAK,L=Gebze - Kocaeli,C=TR",
+      "not_after": "2030-11-12 09:29:14"
+    },
+    {
+      "provider": "turktrust",
+      "url": "https://www.turktrust.com.tr/sertifikalar/TURKTRUST_Elektronik_Sertifika_Hizmet_Saglayicisi_h10.crt",
+      "sha256": "4be663e5f2c613b99e8d35447aaae04ccaace22e5e8c3184c105ca4e0cfb85bb",
+      "subject": "CN=TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı H10,O=TÜRKTRUST Bilgi İletişim ve Bilişim Güvenliği Hizmetleri A.Ş.,L=Ankara,C=TR",
+      "not_after": "2036-04-21 14:40:28"
+    },
+    {
+      "provider": "turktrust",
+      "url": "https://www.turktrust.com.tr/sertifikalar/194_TURKTRUST_Elektronik_Sertifika_Hizmet_Saglayicisi_h7.crt",
+      "sha256": "9af399d1773a43c6f5c81831443ec5d6d2ce6a9c9e61dcad232dc1005443d413",
+      "subject": "CN=TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı H7,O=TÜRKTRUST Bilgi İletişim ve Bilişim Güvenliği Hizmetleri A.Ş.,L=Ankara,C=TR",
+      "not_after": "2030-03-03 14:07:02"
+    },
+    {
+      "provider": "turktrust",
+      "url": "https://www.turktrust.com.tr/sertifikalar/TURKTRUST_Elektronik_Sertifika_Hizmet_Saglayicisi_h8.crt",
+      "sha256": "f229037c969cdd0ce2c5f969d4fae60963425e99ff8c0c4bb78b4556eabd0ac9",
+      "subject": "CN=TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı H8,O=TÜRKTRUST Bilgi İletişim ve Bilişim Güvenliği Hizmetleri A.Ş.,L=Ankara,C=TR",
+      "not_after": "2030-04-07 15:33:49"
+    },
+    {
+      "provider": "turktrust",
+      "url": "https://www.turktrust.com.tr/sertifikalar/TURKTRUST_Elektronik_Sertifika_Hizmet_Saglayicisi_h9.crt",
+      "sha256": "df92b568c0e8a7f5171d78f26e107c3344e26194558804d360fb5289ea34c755",
+      "subject": "CN=TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı H9,O=TÜRKTRUST Bilgi İletişim ve Bilişim Güvenliği Hizmetleri A.Ş.,L=Ankara,C=TR",
+      "not_after": "2032-10-28 12:05:14"
+    }
+  ],
+  "official_client_jar_sha256": "7c89c7a58aeb3ad58ff207a677ce58f29f0c0fcd7059d2aa620942eff9bf7ac8",
+  "official_client_license_url": "https://kamusm.bilgem.tubitak.gov.tr/urunler/zaman_damgasi/dosyalar/License_62_GENEL_ZD_ISTEMCI.zip",
+  "official_client_license_sha256": "28c972c17dde108b51cf06128eecc8fa5406364766ba9c3eefc01726264e21ab"
+}

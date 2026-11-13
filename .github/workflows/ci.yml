@@ -1,0 +1,56 @@
+name: Community checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: community-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - name: Stock Ubuntu tools for disposable CI runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php8.3-cli php8.3-mysql python3-pymysql python3-cryptography python3-asn1crypto python3-pyasn1
+          sudo update-alternatives --set php /usr/bin/php8.3
+      - name: Parse source without importing services
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          for path in Path('.').rglob('*.py'):
+              ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          PY
+          find app public bin -name '*.php' -print0 | xargs -0 -r -n 1 php8.3 -l
+          find public -name '*.js' -print0 | xargs -0 -r -n 1 node --check
+          bash -n install.sh
+      - name: Fixture tests (never install or format)
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          /usr/bin/python3 -B tests/community_install_check.py
+          /usr/bin/python3 -B tests/community_install_engine_check.py
+          /usr/bin/python3 -B tests/community_storage_plan_check.py
+          /usr/bin/python3 -B tests/community_migration_check.py
+          /usr/bin/python3 -B tests/community_release_check.py
+          /usr/bin/python3 -B tests/community_release_build_check.py
+          /usr/bin/python3 -B tests/community_edition_check.py
+      - name: Kernel ownership and recovery fixtures in temporary directories
+        run: |
+          sudo /usr/bin/python3 -B tests/community_runtime_check.py
+          sudo /usr/bin/python3 -B tests/recovery_engine_check.py
+          sudo /usr/bin/python3 -B tests/recovery_bootstrap_check.py

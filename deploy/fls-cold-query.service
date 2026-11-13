@@ -1,0 +1,44 @@
+[Unit]
+Description=FLS authenticated detailed-snapshot query broker
+After=mariadb.service fls-cold-query.socket
+Requires=mariadb.service fls-cold-query.socket
+RequiresMountsFor=/srv/fortigate/archive/detailed /var/cache/fls-cold-query
+
+[Service]
+Type=simple
+User=fls-cold-query
+Group=fls-cold-query
+Sockets=fls-cold-query.socket
+LoadCredential=database:/etc/fls/cold-query.json
+LoadCredential=trusted-public-key:/etc/fls/cold-public-key.pem
+ExecStart=/usr/bin/python3 /var/www/fls/bin/cold-query-service.py
+Environment=TMPDIR=/var/cache/fls-cold-query
+UMask=0077
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=5
+IOWeight=5
+CPUQuota=40%
+MemoryMax=384M
+TasksMax=16
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/srv/fortigate/archive/detailed /tmp /var/tmp
+ReadWritePaths=/var/cache/fls-cold-query
+InaccessiblePaths=/etc/fls /srv/fortigate/raw /srv/fortigate/archive/manifests /srv/fortigate/archive/packages /srv/fortigate/database /srv/fortigate/queue /srv/fortigate/backups /var/log -/var/lib/fls
+
+[Install]
+WantedBy=multi-user.target

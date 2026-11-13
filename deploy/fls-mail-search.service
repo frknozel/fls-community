@@ -1,0 +1,25 @@
+[Unit]
+Description=FLS sparse mail and attachment search index
+After=mariadb.service fls-indexer.service
+Requires=mariadb.service
+
+[Service]
+User=fls-search
+Group=fls-search
+ExecStart=/usr/bin/php /var/www/fls/bin/mail-search-index.php
+Restart=on-failure
+RestartSec=5
+Nice=15
+IOSchedulingClass=idle
+CPUQuota=25%
+MemoryMax=192M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

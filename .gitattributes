@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.zip binary
+# Preserve upstream license text and unified patch context byte for byte.
+**/third_party/rsyslog/COPYING* -whitespace
+**/third_party/rsyslog/*.patch -whitespace

@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "component": "rsyslog-checked-write-collector",
+  "source_version": "8.2312.0-3ubuntu9.4",
+  "local_modification": {
+    "file": "omfile-checked-writes.patch",
+    "sha256": "a3fd5483aa1b351d490486bbe10f4a9c465b088e232991ffa978663ecbea61f5"
+  },
+  "source_archives": [
+    {
+      "filename": "rsyslog_8.2312.0.orig.tar.gz",
+      "bytes": 3358109,
+      "sha256": "774032006128a896437f5913e132aa27dbfb937cd8847e449522d5a12d63d03e",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/rsyslog/8.2312.0-3ubuntu9.4/rsyslog_8.2312.0.orig.tar.gz"
+    },
+    {
+      "filename": "rsyslog_8.2312.0-3ubuntu9.4.debian.tar.xz",
+      "bytes": 51772,
+      "sha256": "04add23cbe67fb7eee3092c63121eeb8df18ec928d6f50e57046e1418605dea3",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/rsyslog/8.2312.0-3ubuntu9.4/rsyslog_8.2312.0-3ubuntu9.4.debian.tar.xz"
+    },
+    {
+      "filename": "rsyslog_8.2312.0-3ubuntu9.4.dsc",
+      "bytes": 3519,
+      "sha256": "4db8dacaa487260edc45533ed1a3b1f7e8b363232c6541f057340c90d14758c2",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/rsyslog/8.2312.0-3ubuntu9.4/rsyslog_8.2312.0-3ubuntu9.4.dsc"
+    }
+  ],
+  "configure_arguments": [
+    "--prefix=/opt/fortigate/rsyslog-8.2312.0-fg1",
+    "--enable-imtcp",
+    "--enable-impstats",
+    "--disable-libsystemd",
+    "--disable-libgcrypt",
+    "--disable-libcap-ng",
+    "--disable-klog",
+    "--disable-kmsg",
+    "--disable-imjournal",
+    "--disable-testbench",
+    "--disable-fmhttp"
+  ],
+  "build_dependencies": [
+    "build-essential",
+    "pkg-config",
+    "libestr-dev",
+    "libfastjson-dev",
+    "zlib1g-dev",
+    "libzstd-dev",
+    "uuid-dev",
+    "autoconf",
+    "automake",
+    "libtool",
+    "bison",
+    "flex",
+    "autoconf-archive"
+  ],
+  "CFLAGS": "-O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3 -ffile-prefix-map=<scratch>=/usr/src/fls-community",
+  "LDFLAGS": "-Wl,-z,relro,-z,now",
+  "binary_included": false,
+  "independent_clean_build_verified_for_this_public_snapshot": true,
+  "upstream_licenses": [
+    "GPL-3.0-or-later",
+    "LGPL-3.0-or-later",
+    "Apache-2.0"
+  ],
+  "local_patch_license": "Apache-2.0",
+  "modified_upstream_file_copyright": "Copyright 2007-2023 Adiscon GmbH",
+  "binary_distribution": "signed_release_asset_only",
+  "build_recipe": "tools/build-components.py"
+}

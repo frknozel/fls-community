@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll FLS explicit administrator system backup jobs
+
+[Timer]
+OnBootSec=10s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+Unit=fls-system-backup.service
+
+[Install]
+WantedBy=timers.target

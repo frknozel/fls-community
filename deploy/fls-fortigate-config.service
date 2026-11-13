@@ -1,0 +1,26 @@
+[Unit]
+Description=FLS read-only FortiGate policy and profile cache
+RequiresMountsFor=/srv/fortigate
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=fls-api
+Group=fls-api
+LoadCredential=fortigate-api.json:/etc/fls/fortigate-api.json
+LoadCredential=fortigate-registry.json:/etc/fls/fortigate-registry.json
+LoadCredential=credential-key:/etc/fls/credential-key
+LoadCredential=fortigate-history.json:/etc/fls/fortigate-history.json
+ExecStart=/usr/bin/python3 /var/www/fls/bin/fortigate-poller.py config
+UMask=0027
+TimeoutStartSec=300
+MemoryMax=256M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/srv/fortigate/metrics/fortigate

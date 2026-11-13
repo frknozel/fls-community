@@ -1,0 +1,82 @@
+/* Desktop density and the optional icon rail are scoped to the main sidebar. */
+.sidebar-header{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-bottom:14px;min-width:0}
+.sidebar-header .brand{min-width:0;flex:1;gap:8px;padding:0}
+.sidebar-header .brand-copy{min-width:0;white-space:nowrap}
+.sidebar-header .brand-copy .beta{display:inline-block;vertical-align:middle;margin:0 0 3px 6px;padding:2px 3px;font-size:8px!important;line-height:1.2}
+.sidebar-toggle{display:none;flex-shrink:0;align-items:center;justify-content:center;width:28px;height:32px;padding:4px;border:1px solid #ffffff25;border-radius:6px;background:#ffffff08;color:#d8e4f1;cursor:pointer}
+.sidebar-toggle:hover{background:#ffffff18;color:#fff}
+.sidebar-toggle svg{width:17px;height:17px}
+.sidebar-tooltip{position:fixed;z-index:100;max-width:300px;padding:9px 12px;border:1px solid #4b6277;border-radius:7px;background:#172c40;color:#f3f7fc;font-size:12px;line-height:1.6;overflow-wrap:anywhere;box-shadow:0 6px 20px #07182738;pointer-events:none}
+.sidebar-tooltip[hidden]{display:none}
+
+@media(min-width:901px){
+ .sidebar{padding-top:14px}
+ .sidebar-header{margin-bottom:12px}
+ .sidebar-header .brand-symbol,.sidebar-header .brand .brand-symbol img{width:35px;height:35px}
+ .sidebar-header .brand-symbol{border-radius:9px}
+ .sidebar-header .brand>.brand-copy{font-size:23px}
+ .sidebar-header .brand .brand-sub{font-size:6.8px;letter-spacing:.2px;margin-top:5px}
+ .sidebar-toggle{display:inline-flex}
+ .sidebar .workspace-sidebar-search{min-height:35px;margin-bottom:9px;padding:7px 10px}
+ .sidebar #navigation{padding:0 2px 4px}
+ .sidebar .nav-label{font-size:10px;line-height:15px;margin:10px 9px 4px}
+ .sidebar .nav-label:first-child{margin-top:3px}
+ .sidebar .nav-item{min-height:35px;padding:6px 8px;margin:2px 0;font-size:13px;line-height:1.5;gap:8px}
+ .sidebar .nav-item:focus-visible{outline:2px solid #c5ed80;outline-offset:-2px}
+ .sidebar .nav-item>[data-icon]{flex-shrink:0}
+ .sidebar .nav-text{min-width:0}
+ .sidebar .sidebar-bottom{padding-top:7px}
+ .sidebar .collector-indicator{min-height:38px;padding:6px 8px}
+ .sidebar .collector-copy>span{margin-top:1px}
+ .sidebar .sidebar-account{margin-top:8px;padding:8px 2px}
+ .sidebar .sidebar-account-copy{min-width:0}
+ .sidebar .account-link{min-width:0}
+ .sidebar .avatar{flex-shrink:0}
+ .sidebar .sidebar-account form{flex-shrink:0}
+
+ html.sidebar-collapsed .sidebar{width:72px;padding-left:9px;padding-right:9px}
+ html.sidebar-collapsed .main-shell{margin-left:72px}
+ html.sidebar-collapsed .sidebar .sidebar-header{flex-direction:column;gap:6px;margin-bottom:9px}
+ html.sidebar-collapsed .sidebar .sidebar-header .brand{flex:none;justify-content:center;width:100%}
+ html.sidebar-collapsed .sidebar .brand-copy,
+ html.sidebar-collapsed .sidebar .nav-text,
+ html.sidebar-collapsed .sidebar .nav-count,
+ html.sidebar-collapsed .sidebar .nav-chip,
+ html.sidebar-collapsed .sidebar .sidebar-search-label,
+ html.sidebar-collapsed .sidebar .workspace-sidebar-search .shortcut,
+ html.sidebar-collapsed .sidebar .sidebar-account-copy,
+ html.sidebar-collapsed .sidebar .collector-copy{display:none}
+ html.sidebar-collapsed .sidebar .sidebar-toggle{height:27px}
+ html.sidebar-collapsed .sidebar .sidebar-toggle svg{transform:rotate(180deg)}
+ html.sidebar-collapsed .sidebar .workspace-sidebar-search{justify-content:center;padding:8px 0;gap:0}
+ html.sidebar-collapsed .sidebar .workspace-sidebar-search>span{margin:0}
+ html.sidebar-collapsed .sidebar #navigation{padding-left:0;padding-right:0}
+ html.sidebar-collapsed .sidebar .nav-item{justify-content:center;gap:0;padding-left:0;padding-right:0}
+ html.sidebar-collapsed .sidebar .nav-label{height:9px;font-size:0;line-height:0;border-top:1px solid #ffffff17;margin:8px 8px 2px}
+ html.sidebar-collapsed .sidebar .nav-label:first-child{display:none}
+ html.sidebar-collapsed .sidebar .collector-indicator{justify-content:center;min-height:30px;padding:8px 0;gap:0}
+ html.sidebar-collapsed .sidebar .sidebar-account{justify-content:center;gap:0;padding:7px 0;margin-top:7px}
+ html.sidebar-collapsed .sidebar .account-link{justify-content:center;width:28px;min-height:32px}
+ html.sidebar-collapsed .sidebar .logout{width:24px;height:32px;padding:3px}
+}
+
+@media(min-width:901px) and (max-height:850px){
+ .sidebar{padding-top:10px}
+ .sidebar-header{margin-bottom:6px}
+ .sidebar .workspace-sidebar-search{min-height:32px;padding-top:5px;padding-bottom:5px;margin-bottom:5px}
+ .sidebar #navigation{padding-bottom:0}
+ .sidebar .nav-label{margin-top:7px;margin-bottom:2px;line-height:14px}
+ .sidebar .nav-label:first-child{margin-top:2px}
+ .sidebar .nav-item{min-height:32px;padding-top:5px;padding-bottom:5px;margin:1px 0}
+ .sidebar .sidebar-bottom{padding-top:5px}
+ .sidebar .collector-indicator{min-height:35px;padding-top:4px;padding-bottom:4px}
+ .sidebar .sidebar-account{margin-top:6px;padding-top:6px;padding-bottom:6px}
+ html.sidebar-collapsed .sidebar .sidebar-header{gap:4px;margin-bottom:6px}
+ html.sidebar-collapsed .sidebar .nav-label{height:7px;margin-top:6px;margin-bottom:1px}
+}
+
+@media(max-width:900px){
+ .sidebar-header .brand{flex:none}
+ .sidebar .nav-item{min-height:44px}
+ .sidebar-tooltip{display:none}
+}

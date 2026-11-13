@@ -1,0 +1,14 @@
+[Unit]
+Description=FLS private cold-query broker socket
+
+[Socket]
+ListenStream=/run/fls-cold-query.sock
+SocketUser=root
+SocketGroup=fls-web
+SocketMode=0660
+Backlog=16
+RemoveOnStop=true
+Service=fls-cold-query.service
+
+[Install]
+WantedBy=sockets.target

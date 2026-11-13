@@ -1,0 +1,26 @@
+[Unit]
+Description=FLS provider time stamps and independently verified timestamp evidence
+After=mariadb.service network-online.target
+Requires=mariadb.service
+RequiresMountsFor=/srv/fortigate/archive
+[Service]
+Type=oneshot
+User=fls-tsa
+Group=fls-tsa
+LoadCredential=database:/etc/fls/timestamp.json
+LoadCredential=master-key:/etc/fls/credential-key
+ExecStart=/usr/bin/python3 /var/www/fls/bin/timestamp-worker.py --credential ${CREDENTIALS_DIRECTORY}/database --key ${CREDENTIALS_DIRECTORY}/master-key
+UMask=0027
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=10
+IOWeight=10
+MemoryMax=512M
+TimeoutStartSec=600
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/srv/fortigate/archive/packages /opt/fls-tsa
+ReadWritePaths=/srv/fortigate/archive/timestamps
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

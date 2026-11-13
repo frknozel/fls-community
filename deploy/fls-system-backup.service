@@ -1,0 +1,32 @@
+[Unit]
+Description=FLS explicit administrator system backup jobs
+After=mariadb.service network-online.target
+Requires=mariadb.service
+RequiresMountsFor=/srv/fortigate/backups /var/lib/fls-recovery-download
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+LoadCredential=database:/etc/fls/system-backup.json
+StateDirectory=fls-backup-worker
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /var/www/fls/bin/system-backup-worker.py
+TimeoutStartSec=1800
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+ReadWritePaths=/var/lib/fls-backup-worker /var/lib/fls-recovery-download /srv/fortigate/backups
+
+[Install]
+WantedBy=multi-user.target

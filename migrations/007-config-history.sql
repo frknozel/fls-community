@@ -1,0 +1,50 @@
+CREATE TABLE IF NOT EXISTS fg_config_versions (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ device VARCHAR(40) NOT NULL,
+ vd VARCHAR(64) NOT NULL,
+ component VARCHAR(40) NOT NULL,
+ content_sha BINARY(32) NOT NULL,
+ content_json JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL,
+ UNIQUE KEY content_identity(device,vd,component,content_sha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+CREATE TABLE IF NOT EXISTS fg_config_observations (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ device VARCHAR(40) NOT NULL,
+ vd VARCHAR(64) NOT NULL,
+ component VARCHAR(40) NOT NULL,
+ attempted_at DATETIME(6) NOT NULL,
+ observed_at DATETIME(6) NULL,
+ version_id BIGINT UNSIGNED NULL,
+ error_code VARCHAR(64) NULL,
+ stored_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ UNIQUE KEY poll_identity(device,vd,component,attempted_at),
+ KEY event_lookup(device,vd,component,observed_at,id),
+ KEY attempts(device,vd,component,attempted_at,error_code),
+ CONSTRAINT fg_observation_version FOREIGN KEY(version_id) REFERENCES fg_config_versions(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+CREATE TABLE IF NOT EXISTS fg_config_changes (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ observation_id BIGINT UNSIGNED NOT NULL,
+ previous_observation_id BIGINT UNSIGNED NULL,
+ device VARCHAR(40) NOT NULL,
+ vd VARCHAR(64) NOT NULL,
+ component VARCHAR(40) NOT NULL,
+ object_key BINARY(32) NOT NULL,
+ object_kind VARCHAR(24) NOT NULL,
+ object_name VARCHAR(512) NOT NULL,
+ policyid INT NULL,
+ poluuid VARCHAR(40) NULL,
+ action VARCHAR(16) NOT NULL,
+ last_confirmed_at DATETIME(6) NULL,
+ observed_at DATETIME(6) NOT NULL,
+ before_json JSON NULL,
+ after_json JSON NULL,
+ diff_json JSON NOT NULL,
+ UNIQUE KEY object_observation(observation_id,object_key),
+ KEY change_time(device,vd,observed_at,id),
+ KEY object_history(device,vd,object_key,observed_at,id),
+ KEY kind_time(device,vd,object_kind,observed_at,id),
+ CONSTRAINT fg_change_observation FOREIGN KEY(observation_id) REFERENCES fg_config_observations(id) ON DELETE RESTRICT,
+ CONSTRAINT fg_change_previous FOREIGN KEY(previous_observation_id) REFERENCES fg_config_observations(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

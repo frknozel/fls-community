@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "installation_id": "9b1d0315-dc13-4c22-8c76-f193e3242760",
+  "hostname": "fls.example.test",
+  "bind_ip": "192.168.20.10",
+  "collector_ip": "192.168.20.10",
+  "collector_port": 5514,
+  "timezone": "Europe/Istanbul",
+  "management_network": "192.168.20.0/24",
+  "storage_label": "Veri diski",
+  "data_path": "/srv/fortigate"
+}

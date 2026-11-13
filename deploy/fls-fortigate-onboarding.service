@@ -1,0 +1,31 @@
+[Unit]
+Description=Validate FLS FortiGate onboarding and reconcile syslog sender permissions
+After=mariadb.service fortigate-collector.service
+RequiresMountsFor=/srv/fortigate
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+RuntimeDirectory=fls-onboarding
+RuntimeDirectoryPreserve=yes
+LoadCredential=onboarding-database:/etc/fls/onboarding-database.json
+LoadCredential=onboarding-collector:/etc/fls/onboarding-collector.json
+ExecStart=/usr/bin/python3 /var/www/fls/bin/fortigate-onboarding.py
+UMask=0027
+TimeoutStartSec=25
+MemoryMax=96M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/run/fls-onboarding /etc/fortigate /srv/fortigate/metrics
+InaccessiblePaths=/srv/fortigate/queue /srv/fortigate/archive /srv/fortigate/backups /etc/fls
+ReadOnlyPaths=/srv/fortigate/raw
+

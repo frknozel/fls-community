@@ -1,0 +1,33 @@
+[Unit]
+Description=FortiGate raw syslog collector
+Documentation=https://docs.rsyslog.com/doc/
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/srv/fortigate
+
+[Service]
+Type=simple
+User=syslog
+Group=adm
+UMask=0027
+ExecStartPre=/usr/bin/python3 /var/www/fls/bin/fls_storage.py
+ExecStartPre=/opt/fortigate/rsyslog-8.2312.0-fg1/sbin/rsyslogd -N1 -f /etc/fortigate/rsyslog.conf
+ExecStart=/opt/fortigate/rsyslog-8.2312.0-fg1/sbin/rsyslogd -n -iNONE -f /etc/fortigate/rsyslog.conf
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=300
+SendSIGKILL=no
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+ReadWritePaths=/srv/fortigate/raw /srv/fortigate/queue /srv/fortigate/metrics
+
+[Install]
+WantedBy=multi-user.target

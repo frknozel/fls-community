@@ -1,0 +1,26 @@
+[Unit]
+Description=Record FLS mail search backlog alert history
+RequiresMountsFor=/srv/fortigate
+After=mariadb.service
+
+[Service]
+Type=oneshot
+User=syslog
+Group=adm
+RuntimeDirectory=fls-mail-backlog-history
+RuntimeDirectoryPreserve=yes
+LoadCredential=history-database:/etc/fls/mail-search-backlog-history.json
+ExecStart=/usr/bin/php -d memory_limit=64M /var/www/fls/bin/mail-search-backlog-history.php
+UMask=0027
+TimeoutStartSec=12
+MemoryMax=96M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/run/fls-mail-backlog-history
+InaccessiblePaths=/srv/fortigate/raw /srv/fortigate/queue /srv/fortigate/archive /srv/fortigate/backups /etc/fls/private
+RestrictAddressFamilies=AF_UNIX

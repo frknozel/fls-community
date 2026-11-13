@@ -1,0 +1,39 @@
+[Unit]
+Description=FLS manual detailed-copy validation for source %i
+After=mariadb.service
+Requires=mariadb.service
+RequiresMountsFor=/srv/fortigate/raw /srv/fortigate/archive/detailed
+
+[Service]
+Type=oneshot
+User=fls-cold
+Group=fls-cold
+SupplementaryGroups=adm
+LoadCredential=database:/etc/fls/cold-storage.json
+LoadCredential=signing-key:/etc/fls/cold-signing-key.pem
+LoadCredential=raw-public-key:/var/www/fls/public/archive-public-key.pem
+LoadCredential=instance:/etc/fls/instance.json
+ExecStart=/usr/bin/python3 /var/www/fls/bin/cold-storage.py --canary-source-id %i
+RuntimeDirectory=fls-cold-storage
+UMask=0027
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=5
+IOWeight=5
+CPUQuota=40%
+MemoryMax=384M
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/srv/fortigate/raw /srv/fortigate/archive/manifests /srv/fortigate/archive/packages
+ReadWritePaths=/srv/fortigate/archive/detailed /run/fls-cold-storage
+InaccessiblePaths=/etc/fls /srv/fortigate/queue /srv/fortigate/backups /var/log -/var/lib/fls -/var/cache/fls -/srv/fortigate/database /srv/fortigate/metrics
+

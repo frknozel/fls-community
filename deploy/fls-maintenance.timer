@@ -1,0 +1,9 @@
+[Unit]
+Description=Apply FLS collection maintenance requests
+[Timer]
+OnBootSec=10s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+Unit=fls-maintenance.service
+[Install]
+WantedBy=timers.target

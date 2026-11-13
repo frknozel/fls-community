@@ -1,0 +1,11 @@
+[Unit]
+Description=FLS configuration database dump at 23:00 Istanbul
+
+[Timer]
+OnCalendar=*-*-* 23:00:00 Europe/Istanbul
+AccuracySec=1s
+Persistent=false
+Unit=fls-db-dump.service
+
+[Install]
+WantedBy=timers.target

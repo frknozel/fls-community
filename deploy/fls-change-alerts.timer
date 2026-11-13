@@ -1,0 +1,11 @@
+[Unit]
+Description=Evaluate FLS change alerts every five minutes
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=300s
+AccuracySec=2s
+Unit=fls-change-alerts.service
+
+[Install]
+WantedBy=timers.target

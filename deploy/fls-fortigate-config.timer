@@ -1,0 +1,11 @@
+[Unit]
+Description=Read FortiGate policies and profiles every 5 minutes
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=300s
+AccuracySec=2s
+Unit=fls-fortigate-config.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh FLS FortiGate setup checks
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+Unit=fls-fortigate-onboarding.service
+[Install]
+WantedBy=timers.target

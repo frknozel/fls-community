@@ -1,0 +1,37 @@
+[Unit]
+Description=FLS bounded allowed-traffic evidence index
+After=mariadb.service fls-indexer.service
+Requires=mariadb.service
+
+[Service]
+User=fls-allowed
+Group=fls-allowed
+LoadCredential=database:/etc/fls/allowed-index.json
+Environment=FLS_ALLOWED_CREDENTIAL=%d/database
+ExecStart=/usr/bin/php -d zend.exception_ignore_args=1 /var/www/fls/bin/allowed-index.php
+Restart=on-failure
+RestartSec=10
+UMask=0077
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=5
+IOWeight=5
+CPUQuota=40%
+MemoryMax=256M
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/var/lib/fls-license
+InaccessiblePaths=/etc/fls /srv/fortigate /var/log -/var/lib/fls -/var/cache/fls
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+[Unit]
+Description=FLS configuration-change block increase alerts
+RequiresMountsFor=/srv/fortigate
+After=mariadb.service
+
+[Service]
+Type=oneshot
+User=fls-alerts
+Group=fls-alerts
+LoadCredential=change-alerts.json:/etc/fls/change-alerts.json
+ExecStart=/usr/bin/php -d memory_limit=256M /var/www/fls/bin/change-alerts.php
+UMask=0027
+TimeoutStartSec=90
+MemoryMax=384M
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/srv/fortigate/metrics/change-alerts

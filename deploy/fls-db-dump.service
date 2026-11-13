@@ -1,0 +1,27 @@
+[Unit]
+Description=FLS daily verified configuration-only MariaDB dump
+After=mariadb.service
+Requires=mariadb.service
+RequiresMountsFor=/srv/fortigate/db-dumps
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+LoadCredential=database:/etc/fls/db-dump.json
+ExecStart=/usr/bin/python3 /var/www/fls/bin/db-dump-worker.py --create
+TimeoutStartSec=900
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+ReadWritePaths=/var/lib/fls-db-dump /srv/fortigate/db-dumps

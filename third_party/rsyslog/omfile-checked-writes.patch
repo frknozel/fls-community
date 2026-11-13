@@ -1,0 +1,24 @@
+--- a/tools/omfile.c
++++ b/tools/omfile.c
+@@ -1084,7 +1084,8 @@
+ 	pthread_mutex_lock(&pData->mutWrite);
+ 
+ 	for(i = 0 ; i < nParams ; ++i) {
+-		writeFile(pData, pParams, i);
++		/* A failed write must keep the entire transaction queued for retry. */
++		CHKiRet(writeFile(pData, pParams, i));
+ 	}
+ 	/* Note: pStrm may be NULL if there was an error opening the stream */
+ 	/* if bFlushOnTXEnd is set, we need to flush on transaction end - in
+@@ -1101,7 +1102,10 @@
+ 
+ finalize_it:
+ 	pthread_mutex_unlock(&pData->mutWrite);
+-	if(iRet == RS_RET_FILE_OPEN_ERROR || iRet == RS_RET_FILE_NOT_FOUND) {
++	if(iRet != RS_RET_OK && !runModConf->bDynafileDoNotSuspend) {
++		/* Explicit reliable-output mode: retry any failed transaction. */
++		iRet = RS_RET_SUSPENDED;
++	} else if(iRet == RS_RET_FILE_OPEN_ERROR || iRet == RS_RET_FILE_NOT_FOUND) {
+ 		iRet = (pData->bDynamicName && runModConf->bDynafileDoNotSuspend) ?
+ 			RS_RET_OK : RS_RET_SUSPENDED;
+ 	}

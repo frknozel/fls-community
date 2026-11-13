@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample FLS resources every 30 seconds
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=fls-telemetry.service
+
+[Install]
+WantedBy=timers.target

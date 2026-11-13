@@ -1,0 +1,96 @@
+{
+  "schema": "fls-community-installer-components-v1",
+  "edition": "community",
+  "repository": "frknozel/fls-community",
+  "preparation_only": false,
+  "supported_platform": {
+    "os": "ubuntu",
+    "version": "24.04",
+    "architecture": "amd64"
+  },
+  "minimum_ram_bytes": 8053063680,
+  "minimum_free_bytes": 42949672960,
+  "packages": [
+    "mariadb-server",
+    "nginx",
+    "php8.3-cli",
+    "php8.3-fpm",
+    "php8.3-mysql",
+    "php8.3-mbstring",
+    "php8.3-curl",
+    "php8.3-xml",
+    "python3-pymysql",
+    "python3-cryptography",
+    "python3-psutil",
+    "python3-asn1crypto",
+    "age",
+    "rsync",
+    "smartmontools",
+    "util-linux",
+    "e2fsprogs",
+    "acl",
+    "openssl",
+    "ca-certificates",
+    "iproute2",
+    "rsyslog",
+    "curl",
+    "libestr0",
+    "libfastjson4",
+    "libuuid1",
+    "libzstd1",
+    "liblz4-1",
+    "zlib1g",
+    "python3-pyasn1"
+  ],
+  "package_policy": {
+    "reason": "ubuntu_24_04_stock_package_profile",
+    "php_version": "8.3",
+    "additional_repository_policy_configured": false,
+    "system_rsyslog_is_not_fls_collector": true,
+    "stock_profile_verified": true,
+    "distribution_repositories_only": true
+  },
+  "components": [
+    {
+      "id": "archive_hash",
+      "required": true,
+      "kind": "native_binary",
+      "relative_path": "artifacts/linux-amd64/fls-archive-hash",
+      "sha256": "bc0dfc9c0643f72a2cdf797a6be820c5c3195fc3b7151119bef26352f593ebfc",
+      "source_status": "in_repository",
+      "source_paths": [
+        "native/archivehash"
+      ],
+      "reason": "native_archive_helper_not_packaged"
+    },
+    {
+      "id": "checked_write_collector",
+      "required": true,
+      "kind": "collector_bundle",
+      "relative_path": "artifacts/linux-amd64/fls-checked-write-collector.tar.gz",
+      "sha256": "14cf137906ee792786c6a9058247920904cba2e6d97cc8f575d8c39857a0545c",
+      "source_status": "patch_and_provenance_in_repository",
+      "source_paths": [
+        "third_party/rsyslog"
+      ],
+      "reason": "checked_write_collector_artifact_missing"
+    },
+    {
+      "id": "provider_timestamp_runtime",
+      "required": false,
+      "kind": "optional_vendor_runtime",
+      "relative_path": "artifacts/provider-runtime.tar.gz",
+      "sha256": null,
+      "source_status": "vendor_distribution_review_required",
+      "source_paths": [
+        "bin/tsa/FlsTsaBridge.java"
+      ],
+      "reason": "provider_runtime_not_distributed"
+    }
+  ],
+  "acceptance": {
+    "clean_host_install_passed": false,
+    "second_disk_migration_passed": false
+  },
+  "recommended_ram_bytes": 8589934592
+}

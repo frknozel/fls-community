@@ -1,0 +1,35 @@
+config system accprofile
+    edit "FLS_API_RO"
+        set comments "FLS read-only policy profile VPN and health queries"
+        set fwgrp read
+        set utmgrp read
+        set vpngrp read
+        set netgrp read
+        set sysgrp read
+        set authgrp none
+        set loggrp none
+        set ftviewgrp none
+        set secfabgrp none
+        set wifi none
+        set cli-config disable
+        set cli-exec disable
+        set cli-diagnose disable
+    next
+end
+
+config system api-user
+    edit "fls-api"
+        set comments "FLS server 192.0.2.2 only"
+        set accprofile "FLS_API_RO"
+        set vdom "root"
+        unset cors-allow-origin
+        config trusthost
+            edit 1
+                set type ipv4-trusthost
+                set ipv4-trusthost 192.0.2.2 255.255.255.255
+            next
+        end
+    next
+end
+
+execute api-user generate-key "fls-api"

@@ -1,0 +1,25 @@
+[Unit]
+Description=FLS read-only FortiGate live metrics
+RequiresMountsFor=/srv/fortigate
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=fls-api
+Group=fls-api
+LoadCredential=fortigate-api.json:/etc/fls/fortigate-api.json
+LoadCredential=fortigate-registry.json:/etc/fls/fortigate-registry.json
+LoadCredential=credential-key:/etc/fls/credential-key
+ExecStart=/usr/bin/python3 /var/www/fls/bin/fortigate-poller.py live
+UMask=0027
+TimeoutStartSec=300
+MemoryMax=256M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/srv/fortigate/metrics/fortigate

@@ -1,0 +1,22 @@
+rsyslog checked-write collector
+
+Upstream: rsyslog, https://www.rsyslog.com/
+Baseline: Ubuntu source package rsyslog 8.2312.0-3ubuntu9.4.
+The corresponding original source and Ubuntu security-patch archive are pinned
+by filename, length and SHA-256 in source.json. Retain the Ubuntu patches;
+applying this local change to an unpatched upstream release is not equivalent.
+
+The project-local omfile-checked-writes.patch checks writeFile() return values
+and suspends a failed output transaction so the durable queue can retry it.
+It modifies tools/omfile.c, Copyright 2007-2023 Adiscon GmbH, whose header uses
+Apache-2.0; the local modification is also Apache-2.0. The complete collector
+contains independently GPL/LGPL-licensed components. COPYING, COPYING.LESSER
+and COPYING.ASL20 reproduce the supplied upstream license texts. Preserve the
+upstream source copyright and dependency notices when building/distributing.
+This component is not relicensed under the FLS Apache-2.0 license.
+
+This preparation snapshot supplies the small modification and exact source
+provenance, not a collector executable or a guarantee of binary equivalence.
+An independent clean build and queue durability acceptance test remain required.
+No source archive from a private installation, local configuration, logs, queue
+files, or build-host metadata is included.

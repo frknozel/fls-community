@@ -1,0 +1,151 @@
+/* Settings reuse the compact workspace scale and its appearance tokens. */
+.theme-status{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.theme-retry{display:grid;place-items:center;width:24px;height:28px;border:1px solid #9c382e;color:#9c382e;background:transparent;border-radius:6px;font-weight:700;cursor:pointer}
+.management-account{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px;margin-bottom:18px}.management-account h2{font-size:17px}.management-account p,.management-help{font-size:12px;line-height:1.65;color:var(--ui-muted);margin:6px 0 12px}.management-account p{margin-bottom:0}
+.management-devices{display:grid;gap:16px;margin-bottom:16px}.management-device .panel-heading{border-bottom:1px solid var(--ui-border)}.management-device .panel-heading h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.management-device-body{padding:16px 18px}.management-device-info{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--ui-muted);margin-bottom:14px}.management-device h4{margin-top:20px}.management-row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.management-key{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--ui-border)}.management-key>div:first-child{min-width:0}.management-key strong{font-size:13px}.management-key small{display:block;color:var(--ui-muted);font-size:11px;line-height:1.7;overflow-wrap:anywhere}.management-key .tag{margin:4px 0}.management-user-table td{vertical-align:middle}.management-user-table td small{display:block}
+.management-dialog{width:650px;max-width:calc(100vw - 28px);max-height:calc(100dvh - 28px);padding:22px;border:1px solid var(--ui-border);border-radius:14px;background:var(--ui-surface);color:var(--ui-ink);box-shadow:0 20px 70px #10274440;overflow:auto}.management-dialog::backdrop{background:#071320a6;backdrop-filter:blur(3px)}.management-dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.management-dialog-heading h2{font-size:19px}.management-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.management-fields label{display:flex;flex-direction:column;gap:6px;font-size:12px;min-width:0;color:var(--ui-muted)}.management-fields input,.management-fields select{width:100%;min-width:0}.management-fields input[readonly]{opacity:.75}.management-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--ui-border)}.management-error{font-size:12px;color:#a42b29;line-height:1.6}.management-dialog .management-help{margin-top:18px}.management-dialog .icon-button{background:var(--ui-canvas);color:var(--ui-ink)}
+:root[data-theme=dark] :is(.management-dialog,.management-dialog h2,.management-device-info strong,.management-key strong){color:var(--ui-ink)}:root[data-theme=dark] :is(.theme-retry,.management-error){color:#ffb4b4;border-color:#ffb4b4}
+@media(max-width:700px){#api-device-control{flex:1;min-width:0}#api-device{max-width:100%;width:100%}.management-account{align-items:flex-start;flex-direction:column}.management-fields{grid-template-columns:1fr}.management-dialog{padding:18px}.management-fields input,.management-fields select{font-size:16px;min-height:40px}.management-key{align-items:flex-start;flex-direction:column;gap:10px}.management-user-table{min-width:550px}.management-device-info{gap:6px;flex-direction:column}.management-dialog h2{font-size:18px}.management-key .button{min-height:40px}}
+
+/* The active FortiGate must remain readable, including on narrow screens. */
+#api-device-control{min-width:230px;max-width:340px}
+#api-device{width:100%}
+@media(max-width:600px){.heading-actions{flex-wrap:wrap}#api-device-control{flex:1 0 100%;max-width:100%;min-width:0}.heading-actions #period-control{flex:1}}
+
+.device-choice-row{display:flex;gap:6px;align-items:center;min-width:0}.device-choice-row select{flex:1;min-width:0}.device-choice-row .theme-retry{flex:0 0 24px}
+
+.management-access{grid-column:1/-1;border:1px solid var(--ui-border);border-radius:10px;padding:14px;margin:2px 0 0;min-width:0}
+.management-access legend{font-weight:650;padding:0 6px}.management-access>p{color:var(--ui-muted);font-size:12px;margin:0 0 12px}
+.management-access-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:260px;overflow:auto}
+.management-fields .management-access-choice{display:flex;flex-direction:row;align-items:center;gap:10px;padding:10px;border:1px solid var(--ui-border);border-radius:8px;cursor:pointer}
+.management-fields .management-access-choice:has(input:checked){border-color:var(--ui-blue);background:var(--ui-canvas)}
+.management-fields .management-access-choice input{width:17px;height:17px;min-height:0;margin:0;flex-shrink:0;accent-color:var(--ui-blue)}
+.management-access-choice span{min-width:0}.management-access-choice strong{display:block;overflow-wrap:anywhere;font-size:12px}.management-access-choice small{display:block;color:var(--ui-muted);margin-top:4px;font-size:11px}
+.management-grants{display:flex;flex-wrap:wrap;gap:4px;max-width:330px}.management-grants .soft-tag{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:600px){.management-access-list{grid-template-columns:1fr}}
+
+/* Device management keeps its list and add action outside the selected panel. */
+#management-connections{min-width:0}
+.management-connections-heading{align-items:center;margin:8px 0 20px}
+.management-connections-heading>div{min-width:0}
+.management-connections-heading h2{font-size:19px;line-height:1.45}
+.management-connections-heading .management-help{margin-bottom:0}
+.management-connections-heading>.button{flex-shrink:0}
+.management-workspace{display:grid;grid-template-columns:minmax(210px,260px) minmax(0,1fr);gap:20px;align-items:start}
+.management-device-list,.management-device-detail{min-width:0}
+.management-device-buttons{display:grid;gap:9px}
+.management-device-picker{display:none}
+.management-device-choice{width:100%;display:grid;gap:5px;text-align:left;border:1px solid var(--ui-border);border-radius:10px;padding:15px;background:var(--ui-surface);color:var(--ui-ink);cursor:pointer;font:inherit;line-height:1.5}
+.management-device-choice:hover{border-color:var(--ui-blue)}
+.management-device-choice.is-selected{border-color:var(--ui-blue);box-shadow:inset 3px 0 0 var(--ui-blue);background:var(--ui-canvas)}
+.management-device-choice-title{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-width:0}
+.management-device-choice strong{font-size:13px;overflow-wrap:anywhere}
+.management-device-choice .tag{flex-shrink:0;font-size:10px}
+.management-device-choice>span:not(:first-child){font-size:12px;overflow-wrap:anywhere}
+.management-device-choice small{font-size:11px;color:var(--ui-muted);overflow-wrap:anywhere}
+.management-detail-heading{display:flex;justify-content:space-between;gap:14px;padding:22px;align-items:flex-start}
+.management-detail-heading>div{min-width:0}
+.management-detail-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.management-detail-title h3{font-size:19px;overflow-wrap:anywhere;line-height:1.5}
+.management-detail-heading p{font-size:12px;line-height:1.8;color:var(--ui-muted);margin:8px 0 0;overflow-wrap:anywhere}
+.management-detail-heading>.button{flex-shrink:0}
+.management-device-tabs{display:flex;gap:2px;border-block:1px solid var(--ui-border);padding:0 16px;overflow-x:auto;background:var(--ui-canvas)}
+.management-device-tabs button{border:0;border-bottom:3px solid transparent;background:transparent;color:var(--ui-muted);font:inherit;font-weight:600;font-size:12px;padding:15px 12px;white-space:nowrap;cursor:pointer;min-height:46px}
+.management-device-tabs button[aria-selected=true]{border-bottom-color:var(--ui-blue);color:var(--ui-blue)}
+.management-device-detail #settings-device-panel{padding:22px;min-width:0}
+.management-section-title{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.management-section-title h4{font-size:16px;line-height:1.6;margin:0}
+.management-section-title .management-help{font-size:12px;margin:5px 0 16px}
+.management-keys .management-key{align-items:flex-start;flex-direction:column;gap:12px;padding:18px 0}
+.management-keys .management-key:first-child{border-top:0;padding-top:6px}
+.management-keys .management-key:last-child{padding-bottom:0}
+.management-key-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.management-key-title strong{overflow-wrap:anywhere}
+.management-key-details{font-size:11px;color:var(--ui-muted);margin-top:6px}
+.management-key-details summary{cursor:pointer}
+.management-keys .management-row-actions{gap:7px}
+.management-keys .management-row-actions .button{height:36px;font-size:12px;padding:0 12px}
+.management-device-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 22px;margin:8px 0 22px}
+.management-device-facts dt{font-size:11px;color:var(--ui-muted);margin-bottom:6px}
+.management-device-facts dd{font-size:13px;color:var(--ui-ink);margin:0;overflow-wrap:anywhere}
+.management-key-empty,.management-device-empty{background:var(--ui-canvas);border:1px dashed var(--ui-border);padding:24px;border-radius:10px;line-height:1.8;color:var(--ui-ink)}
+.management-key-empty p,.management-device-empty p{font-size:12px;color:var(--ui-muted);margin-top:6px}
+.management-device-empty h3{font-size:17px}
+.management-target{display:grid;gap:5px;padding:15px 17px;border:1px solid var(--ui-border);border-left:3px solid var(--ui-blue);background:var(--ui-canvas);border-radius:8px;margin-bottom:20px;overflow-wrap:anywhere}
+.management-target>span{font-size:11px;color:var(--ui-muted)}
+.management-target>strong{font-size:15px}
+.management-target>small{font-size:12px;color:var(--ui-muted)}
+.management-advanced{border-top:1px solid var(--ui-border);padding-top:14px;margin-top:18px;font-size:12px}
+.management-advanced>summary{cursor:pointer;color:var(--ui-muted);font-weight:600;min-height:28px}
+.management-advanced[open]>.management-fields{margin-top:12px}
+.management-delete-copy{grid-column:1/-1;font-size:14px;line-height:1.8}
+.management-delete-copy p+p{font-size:12px;color:var(--ui-muted);margin-top:8px}
+.management-danger{color:#a42b29}
+.button.management-danger{border-color:#d6a5a2;background:var(--ui-surface)}
+.management-device-detail>#management-key-error:not(:empty){margin:16px 22px}
+.management-device-detail>[data-management-list-reload]{margin:0 22px 10px}
+.management-access-note{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 22px;border-top:1px solid var(--ui-border);background:var(--ui-canvas)}
+.management-access-note p{font-size:12px;color:var(--ui-muted);line-height:1.7}
+.management-access-note .text-button{font-size:12px;flex-shrink:0}
+#management-setup-content .setup-heading{flex-direction:column;margin-top:0}
+#management-setup-content .setup-heading h2{font-size:17px}
+#management-setup-content .setup-heading>.management-row-actions{justify-content:flex-start}
+#management-setup-content .setup-checks{grid-template-columns:1fr}
+#management-setup-content .setup-outcome{align-items:flex-start;flex-direction:column}
+#management-setup-content .setup-check h3{font-size:14px}
+#management-setup-content .setup-options{margin-bottom:16px}
+:root[data-theme=dark] .management-danger{color:#ffb4b4}
+:root[data-theme=dark] .button.management-danger{border-color:#925e64;color:#ffb4b4}
+@media(max-width:1050px){
+ .management-workspace{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:14px}
+ .management-detail-heading{flex-direction:column}
+ .management-device-tabs{padding:0 8px}
+ .management-device-tabs button{padding-inline:9px}
+ .management-access-note{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:800px){
+ .management-workspace{grid-template-columns:minmax(0,1fr)}
+ .management-device-buttons{display:none}
+ .management-device-picker{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--ui-muted)}
+ .management-device-picker select{width:100%;font-size:16px;min-height:44px}
+ .management-connections-heading{align-items:flex-start;flex-direction:column;gap:12px}
+ .management-connections-heading h2{font-size:18px}
+ .management-detail-heading{padding:17px}
+ .management-detail-title h3{font-size:17px}
+ .management-device-detail #settings-device-panel{padding:17px}
+ .management-device-facts{gap:18px 14px}
+ .management-section-title{flex-direction:column;gap:4px;margin-bottom:14px}
+ .management-section-title .management-help{margin-bottom:8px}
+ .management-keys .management-row-actions .button{min-height:40px}
+ .management-device-tabs button{font-size:12px;padding:12px 10px}
+ .management-access-note{padding:12px 17px}
+ .management-device-detail>#management-key-error:not(:empty){margin:14px 17px}
+}
+@media(max-width:600px){
+ #settings-content>.workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-width:0;width:100%;overflow:visible}
+ #settings-content>.workspace-tabs button{min-width:0;width:100%;white-space:normal;line-height:1.5;min-height:44px}
+ #settings-content .management-device-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));min-width:0;width:100%;padding:0;gap:0;overflow:visible}
+ #settings-content .management-device-tabs button{min-width:0;width:100%;font-size:11px;padding:12px 6px;white-space:normal;line-height:1.5;min-height:54px}
+}
+@media(max-width:430px){
+ .management-device-facts{grid-template-columns:minmax(0,1fr)}
+ .management-detail-heading>.button{width:100%}
+ #management-setup-content .management-fields{grid-template-columns:minmax(0,1fr)}
+ #management-setup-content .setup-check dl{grid-template-columns:minmax(0,1fr);gap:4px}
+ #management-setup-content .setup-check dd{margin-bottom:6px}
+}
+
+/* Each settings section explains the scope of its actions. */
+#settings-content>.management-section-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;overflow:visible;border:0;background:transparent;padding:0;margin:0 0 14px}
+#settings-content>.management-section-tabs button{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:5px;white-space:normal;text-align:left;line-height:1.5;min-width:0;min-height:80px;padding:13px 15px;border:1px solid var(--ui-border);border-radius:9px;background:var(--ui-surface);color:var(--ui-ink)}
+#settings-content>.management-section-tabs button[aria-selected=true]{border-color:var(--ui-blue);box-shadow:inset 0 3px 0 var(--ui-blue);background:var(--ui-canvas)}
+.management-section-tabs button>span{font-weight:600;font-size:12px;overflow-wrap:anywhere}
+.management-section-tabs button>small{font-size:11px;color:var(--ui-muted);font-weight:400;overflow-wrap:anywhere}
+.management-section-context{display:flex;align-items:flex-start;gap:12px;background:var(--ui-canvas);border:1px solid var(--ui-border);border-radius:9px;padding:13px 16px;margin-bottom:22px;min-width:0}
+.management-section-context>.soft-tag{flex-shrink:0;margin-top:2px}
+.management-section-context p{font-size:12px;line-height:1.8;color:var(--ui-muted);margin:0;overflow-wrap:anywhere}
+.management-read-state{padding:20px;margin:16px 0;min-width:0}
+.management-read-state h3{font-size:16px;margin:0 0 8px}
+.management-read-state p{font-size:13px;color:var(--ui-muted);line-height:1.7;margin:0 0 14px}
+@media(max-width:1050px){#settings-content>.management-section-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){#settings-content>.management-section-tabs button{min-height:88px;padding:11px 12px}.management-section-context{flex-direction:column;gap:7px;padding:12px 14px}.management-read-state{padding:16px}}

@@ -1,0 +1,12 @@
+USE fls;
+CREATE TABLE IF NOT EXISTS event_notes (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ event_id BIGINT UNSIGNED NOT NULL,
+ confirmed_recipient VARCHAR(254) NOT NULL DEFAULT '',
+ confirmation_source VARCHAR(120) NOT NULL,
+ body TEXT NOT NULL,
+ author VARCHAR(64) NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ KEY event_history(event_id,id),
+ CONSTRAINT event_notes_event FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;

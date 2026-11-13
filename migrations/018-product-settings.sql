@@ -1,0 +1,52 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role ENUM('admin','analyst') NOT NULL DEFAULT 'analyst';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled TINYINT UNSIGNED NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS revision INT UNSIGNED NOT NULL DEFAULT 1;
+CREATE TABLE IF NOT EXISTS user_preferences (
+ user_id INT UNSIGNED PRIMARY KEY,
+ theme ENUM('system','light','dark') NOT NULL,
+ updated_at DATETIME(6) NOT NULL,
+ CONSTRAINT user_preferences_owner FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS management_lock (id TINYINT UNSIGNED PRIMARY KEY) ENGINE=InnoDB;
+INSERT IGNORE INTO management_lock(id) VALUES(1);
+CREATE TABLE IF NOT EXISTS fortigate_connections (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(100) NOT NULL,
+ serial VARCHAR(40) NOT NULL,
+ vdom VARCHAR(64) NOT NULL DEFAULT 'root',
+ hostname VARCHAR(253) NOT NULL,
+ connect_ip VARCHAR(45) NOT NULL,
+ source_ip VARCHAR(45) NOT NULL DEFAULT '',
+ port SMALLINT UNSIGNED NOT NULL DEFAULT 443,
+ enabled TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ is_default TINYINT UNSIGNED NULL DEFAULT NULL,
+ legacy_cache TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ created_at DATETIME(6) NOT NULL,
+ updated_at DATETIME(6) NOT NULL,
+ UNIQUE KEY device_identity(serial,vdom),
+ UNIQUE KEY one_default(is_default)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+CREATE TABLE IF NOT EXISTS fortigate_credentials (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ connection_id INT UNSIGNED NOT NULL,
+ name VARCHAR(100) NOT NULL,
+ purpose ENUM('both','live','config') NOT NULL DEFAULT 'both',
+ priority SMALLINT UNSIGNED NOT NULL DEFAULT 100,
+ enabled TINYINT UNSIGNED NOT NULL DEFAULT 1,
+ secret_cipher TEXT NOT NULL,
+ fingerprint CHAR(12) NOT NULL,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ test_requested_at DATETIME(6) NULL,
+ checked_at DATETIME(6) NULL,
+ checked_revision INT UNSIGNED NULL,
+ check_status VARCHAR(24) NOT NULL DEFAULT 'untested',
+ check_code VARCHAR(64) NULL,
+ last_used_at DATETIME(6) NULL,
+ created_at DATETIME(6) NOT NULL,
+ updated_at DATETIME(6) NOT NULL,
+ KEY connection_order(connection_id,priority,id),
+ CONSTRAINT credential_connection FOREIGN KEY(connection_id) REFERENCES fortigate_connections(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
