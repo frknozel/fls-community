@@ -14,7 +14,7 @@
   "collector_binary_distributed": "signed-release-asset",
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
-    "independent_real_fortigate_log_ingestion_acceptance",
+    "independent_ingestion_continuity_and_queue_error_acceptance",
     "independent_system_backup_acceptance",
     "independent_second_disk_migration_and_reboot_acceptance",
     "independent_full_restore_acceptance",
@@ -28,10 +28,13 @@
     "reboot_and_panel_access": "user_confirmed",
     "initial_collection_paused": "user_confirmed",
     "manual_collection_start": "user_confirmed",
-    "real_fortigate_log_ingestion": "pending",
+    "real_fortigate_log_ingestion": "user_confirmed",
     "system_backup_acceptance": "pending",
     "second_disk_migration_and_reboot": "pending",
-    "full_restore": "pending"
+    "full_restore": "pending",
+    "ingestion_continuity_after_reboot": "pending",
+    "queue_and_write_error_acceptance": "pending",
+    "ingestion_data_completeness": "pending"
   },
   "checks_updated_on": "2026-11-13"
 }

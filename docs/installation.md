@@ -1,6 +1,6 @@
 # Temiz Ubuntu VM ile kurulum denemesi
 
-`v0.76.0-rc.4`, uçtan uca kabul testi henüz tamamlanmamış bir test sürümüdür. Ayrı bir VMware ESXi / Ubuntu 24.04 VM'de temiz kurulum, yönetici girişi, tek disk rolleri, `/srv/fls-server` yolları, yeniden başlatma sonrası panelin açılması ve durdurulmuş log alımının korunması kullanıcı tarafından doğrulandı. Log alımı daha sonra panelden başarıyla başlatıldı. Gerçek FortiGate kayıtlarının alınması, yedekler, ikinci diske taşıma ve tam kurtarma kabulü henüz bekliyor. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
+`v0.76.0-rc.4`, uçtan uca kabul testi henüz tamamlanmamış bir test sürümüdür. Ayrı bir VMware ESXi / Ubuntu 24.04 VM'de temiz kurulum, yönetici girişi, tek disk rolleri, `/srv/fls-server` yolları, yeniden başlatma sonrası panelin açılması ve durdurulmuş log alımının korunması kullanıcı tarafından doğrulandı. Log alımı panelden başlatıldı; gönderici izni uygulandıktan sonra gerçek FortiGate kayıtlarının API anahtarı olmadan arayüzde görünmesi de kullanıcı tarafından doğrulandı. Alım açıkken yeniden başlatma/süreklilik, kuyruk-yazım denetimi, yedekler, ikinci diske taşıma ve tam kurtarma kabulü henüz bekliyor. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
 
 Bu sürümün mantıksal veri kökü `/srv/fls-server` dizinidir. MariaDB/indeksler ve geçici teslim kuyruğu sistem diskinde bu kökte tutulur. Ayrı depo diski `/srv/fls-storage` altında bağlanır; log ve yedek dizinleri bu depodan mantıksal köke bağlanır. RC3 veya daha eski bir denemeden geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; `--apply` yerinde güncelleme veya eski yedeği dönüştürme aracı değildir.
 
@@ -52,6 +52,14 @@ Kurucunun son sağlık kontrolü HTTPS/sürüm bilgisinin yanında disk işçisi
 8. Logsuz FLS System Backup ve günlük DB dump üretin; indirmeyi ve varsa test FTPS aktarımını sınayın. Şifreleme açılacaksa kurtarma özel anahtarını sunucu dışında saklayın.
 9. Yeni boş ikinci sanal disk ekleyip [taşıma denemesini](storage-migration.md) yapın. Sonra yeniden başlatma ve depo diski eksik olduğunda yazımın durması senaryolarını sınayın.
 10. Sorunda hata kodunu, kurulum aşamasını ve ilgili servis günlüklerini kaydedin; sırları paylaşmayın. Temiz snapshot'a dönün, düzeltilmiş sürümden tekrar başlayın. Başlamış/yarım kurulum otomatik tekrar edilmez.
+
+### API anahtarı olmadan logları görüntüleme
+
+Cihazdaki **Etkin** seçeneği FortiGate API sorgulamasını açar ve bu nedenle en az bir etkin API anahtarı ister. İlk syslog kabulünde cihaz **Hazırlık / devre dışı** durumunda kalabilir. Bu durum kullanıcıya atanmış cihazın loglarını raporlardan çıkarmaz; API/canlı durum kontrolleri ayrı olarak bekleyebilir.
+
+Üç adımı ayrı tamamlayın: FortiGate'te ek hedefi tanımlamak, FLS'de **Kaynağı kaydet ve sunucuya uygula** ile TCP göndericisini kabul etmek ve kullanıcı hesabına cihazı görüntüleme erişimi vermek. Kaynak izni onaylandıktan sonra yeni log eşleşmesini ve kayıtları kontrol edin.
+
+**Engeller ve kayıtlar** ekranının varsayılan filtresi yalnız güvenlik engellerini gösterebilir. İlk denemede **Hangi kayıtlar? → Tüm kayıtlar**, uygun zaman aralığı ve doğru FortiGate seçimini kullanın. Boş bir filtre sonucu, tek başına alımın durmuş olduğunu göstermez.
 
 ### FortiGate'e ek test hedefi hazırlığı
 
