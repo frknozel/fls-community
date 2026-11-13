@@ -6,14 +6,13 @@ Varsayılan testler geçici dosya, sentetik envanter ve sahte servis/SQL adaptö
 export PYTHONDONTWRITEBYTECODE=1
 python3 -B tests/community_install_check.py
 python3 -B tests/community_install_engine_check.py
-python3 -B tests/community_migration_check.py
 python3 -B tests/community_storage_plan_check.py
 python3 -B tests/community_release_check.py
 python3 -B tests/community_release_build_check.py
 python3 -B tests/community_edition_check.py
 ```
 
-PHP 8.3 CLI, Python 3.12, Node ve OpenSSL gerekir. Node yalnız geliştirme içindir. Kernel metadata sahipliğini doğrulayan `tests/community_runtime_check.py` ve `tests/recovery_engine_check.py`, root ile çalıştırılan geçici dosya testleridir; gerçek aygıta yazmazlar. `tests/recovery_bootstrap_check.py` ağ denemelerini ayrıca izin verilmedikçe atlar.
+PHP 8.3 CLI, Python 3.12, Node ve OpenSSL gerekir. Node yalnız geliştirme içindir. Disk adaptörlerinin root sahipliğini doğrulayan `sudo python3 -B tests/community_migration_check.py`, `tests/community_runtime_check.py` ve `tests/recovery_engine_check.py`, root ile çalıştırılan geçici dosya testleridir; gerçek aygıta yazmazlar. `tests/recovery_bootstrap_check.py` ağ denemelerini ayrıca izin verilmedikçe atlar.
 
 `tests/community_schema_check.py --mariadb-prefix /tmp/extracted/usr`, Ubuntu paketlerinden **kurmadan açılmış** MariaDB 10.11 araçlarıyla yeni `/tmp` veritabanı ve socket oluşturur. TCP kapalıdır; dış veritabanı hedefi seçeneği yoktur. Root gerektirir; 80 tabloyu, şema tekrarlanmasını ve servis SQL yetkilerini sınar.
 
