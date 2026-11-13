@@ -2,9 +2,9 @@
 # FLS Community signed-release bootstrap. No disks are partitioned here.
 set -euo pipefail
 umask 077
-readonly release_tag='v0.76.0-rc.4'
+readonly release_tag='v0.76.0-rc.5'
 readonly release_version='0.76.0'
-readonly release_name='fls-community-0.76.0-rc.4-linux-amd64.tar.gz'
+readonly release_name='fls-community-0.76.0-rc.5-linux-amd64.tar.gz'
 readonly release_base="https://github.com/frknozel/fls-community/releases/download/${release_tag}"
 mode='plan'
 explicit_mode=''

@@ -17,6 +17,9 @@ import subprocess
 import tarfile
 
 SCHEMA='fls-community-release-files-v1'
+# A usable installer release must also carry its logs-free backup resources.
+# These must be tracked by the sanitized export, not merely found on disk.
+REQUIRED_RUNTIME_RESOURCES=frozenset({'bin/system-backup.py', 'docs/system-backup-restore.md'})
 
 
 def digest(path):
@@ -88,6 +91,8 @@ def build(source,components,destination,tag,key):
     # The exporter manifest's map format is intentionally accepted as well.
     if isinstance(source_rows,dict):source_rows=[{'path':p,**(v if isinstance(v,dict) else {'sha256':v})} for p,v in source_rows.items()]
     if not source_rows:raise ValueError('sanitized_export_required')
+    source_names={safe_path(row['path']) for row in source_rows}
+    if not REQUIRED_RUNTIME_RESOURCES.issubset(source_names):raise ValueError('required_runtime_resource_not_listed')
     destination.mkdir(mode=0o700);tree=destination/'fls-community';tree.mkdir(mode=0o755)
     listed=set()
     for row in source_rows:

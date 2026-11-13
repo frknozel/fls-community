@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Release-builder fixtures: no compiler, downloads, package or service changes."""
+import ast
 import contextlib
 import hashlib
 import importlib.util
@@ -66,6 +67,8 @@ class ReleaseBuilderFixtures(unittest.TestCase):
         self.files = {
             'VERSION': b'0.76.0\n',
             'bin/fls-install.py': b'# fixture installer\n',
+            'bin/system-backup.py': (TREE / 'bin/system-backup.py').read_bytes(),
+            'docs/system-backup-restore.md': (TREE / 'docs/system-backup-restore.md').read_bytes(),
             'deploy/installer-components.json': json.dumps(manifest).encode(),
             'tools/build-components.py': b'# fixture build script\n',
             'third_party/rsyslog/source.json': json.dumps(provenance).encode(),
@@ -97,7 +100,7 @@ class ReleaseBuilderFixtures(unittest.TestCase):
 
     def build(self):
         with patch.object(release.subprocess, 'run', side_effect=self.fake_sign), contextlib.redirect_stdout(io.StringIO()):
-            return release.build(self.source, self.components, self.destination, 'v0.76.0-rc.4', self.key)
+            return release.build(self.source, self.components, self.destination, 'v0.76.0-rc.5', self.key)
 
     def test_full_builder_creates_exact_three_field_inventory_and_pinned_assets(self):
         outer = self.build()
@@ -118,6 +121,48 @@ class ReleaseBuilderFixtures(unittest.TestCase):
         with tarfile.open(self.destination / outer['filename']) as archive:
             self.assertTrue(all(member.isfile() and member.name.startswith('fls-community/')
                                 and member.mode in (0o644, 0o755) for member in archive))
+
+    def test_signed_release_carries_resources_declared_by_actual_backup_builder(self):
+        # Inspect the real consumer rather than duplicate its required doc name.
+        module = ast.parse((TREE / 'bin/system-backup.py').read_text())
+        required_docs = {node.right.value for node in ast.walk(module)
+                         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)
+                         and isinstance(node.left, ast.Name) and node.left.id == 'SOURCE'
+                         and isinstance(node.right, ast.Constant) and isinstance(node.right.value, str)
+                         and node.right.value.startswith('docs/')}
+        self.assertTrue(required_docs, 'Backup builder must declare its bundled recovery guide')
+        self.assertTrue(required_docs.issubset(release.REQUIRED_RUNTIME_RESOURCES))
+        outer = self.build()
+        tree = self.destination / 'fls-community'
+        inner = json.loads((tree / 'deploy/release-files.json').read_text())
+        rows = {row['path']: row for row in inner['files']}
+        with tarfile.open(self.destination / outer['filename']) as archive:
+            for relative in required_docs:
+                self.assertIn(relative, rows)
+                member = archive.getmember('fls-community/' + relative)
+                data = archive.extractfile(member).read()
+                self.assertEqual(hashlib.sha256(data).hexdigest(), rows[relative]['sha256'])
+                self.assertEqual(data, (TREE / relative).read_bytes())
+                self.assertTrue(data.strip())
+
+    def test_missing_or_unlisted_runtime_guide_never_signs_or_creates_release(self):
+        for remove_file in (False, True):
+            with self.subTest(remove_file=remove_file):
+                # Discover resource names from the builder contract itself.
+                guide = next(name for name in release.REQUIRED_RUNTIME_RESOURCES if name.startswith('docs/'))
+                baseline = json.loads(self.baseline.read_text())
+                original = self.baseline.read_bytes()
+                data = (self.source / guide).read_bytes()
+                baseline['files'] = [row for row in baseline['files'] if row['path'] != guide]
+                self.baseline.write_text(json.dumps(baseline))
+                if remove_file: (self.source / guide).unlink()
+                try:
+                    with self.assertRaisesRegex(ValueError, 'required_runtime_resource_not_listed'): self.build()
+                    self.assertFalse(self.destination.exists())
+                    self.assertEqual(self.sign_calls, [])
+                finally:
+                    self.baseline.write_bytes(original)
+                    (self.source / guide).write_bytes(data)
 
     def test_release_inventory_is_accepted_by_actual_git_free_backup_reader(self):
         self.build()
@@ -251,7 +296,7 @@ class CompleteBootstrapFixtures(unittest.TestCase):
             'dpkg': '#!/bin/sh\n[ "$1" = "--print-architecture" ] || exit 97\nprintf amd64\n',
             'mktemp': '#!/usr/bin/python3\nimport os\nfrom pathlib import Path\np=Path(os.environ["FLS_FIXTURE_WORK"]);p.mkdir(mode=0o700);print(p)\n',
             'curl': '#!/usr/bin/python3\nimport os,sys,shutil\nfrom pathlib import Path\na=sys.argv[1:];name=a[-1].rsplit("/",1)[-1]\n'
-                    'assert name in {"release.json","release.json.sig","fls-community-0.76.0-rc.4-linux-amd64.tar.gz"}\n'
+                    'assert name in {"release.json","release.json.sig","fls-community-0.76.0-rc.5-linux-amd64.tar.gz"}\n'
                     'with open(os.environ["FLS_FIXTURE_CALLS"],"a") as log:log.write(name+"\\n")\n'
                     'shutil.copyfile(Path(os.environ["FLS_FIXTURE_REMOTE"])/name,a[a.index("--output")+1])\n',
         }
@@ -262,10 +307,10 @@ class CompleteBootstrapFixtures(unittest.TestCase):
             'FLS_FIXTURE_CALLS': str(self.calls), 'FLS_FIXTURE_PROOF': str(self.proof)}
         installer = (b'import os\nfrom pathlib import Path\n'
                      b'Path(os.environ["FLS_FIXTURE_PROOF"]).write_text("fixture installer reached")\n')
-        self.package = self.remote / 'fls-community-0.76.0-rc.4-linux-amd64.tar.gz'
+        self.package = self.remote / 'fls-community-0.76.0-rc.5-linux-amd64.tar.gz'
         self.package.write_bytes(tar_bytes([('fls-community/bin/fls-install.py', installer)]))
         self.manifest = {'schema': 'fls-community-release-v1', 'version': '0.76.0',
-                         'tag': 'v0.76.0-rc.4', 'filename': self.package.name,
+                         'tag': 'v0.76.0-rc.5', 'filename': self.package.name,
                          'bytes': self.package.stat().st_size, 'sha256': release.digest(self.package)}
         self.sign()
 

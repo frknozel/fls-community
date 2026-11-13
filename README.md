@@ -2,7 +2,7 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.4 bir test sürümüdür.** Ayrı bir ESXi / Ubuntu 24.04 VM'de temiz kurulum, yönetici girişi, tek disk rolleri ve yeni veri yolları, yeniden başlatma sonrası panelin açılması ve durdurulmuş log alımının korunması kullanıcı tarafından doğrulandı. Alımın panelden başlatılması ve kaynak izni uygulandıktan sonra gerçek FortiGate loglarının API anahtarı olmadan arayüzde görünmesi de kullanıcı tarafından doğrulandı. Alım açıkken yeniden başlatma/süreklilik, kuyruk-yazım denetimi, yedekler, ikinci diske taşıma ve tam kurtarma kabulü henüz bekliyor; baştan sona kabul testi tamamlanmış değildir. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
+**0.76.0-rc.5 bir test sürümüdür.** Önceki RC4, ayrı ESXi / Ubuntu 24.04 VM'de temiz kurulum, yönetici girişi, tek disk rolleri, `/srv/fls-server` yolları, ilk duraklatılmış açılış ve API anahtarı olmadan gerçek FortiGate log alımı için kullanıcı tarafından doğrulandı. Log alımı açıkken yeniden başlatma sonrası akışın sürmesi de doğrulandı; beş temel servis aktif ve başarısız birim yoktu. RC4'ün sistem yedeği denemesinde zorunlu kurtarma kılavuzunun paket dışında kaldığı görüldü. RC5 kılavuzu ve eksik kılavuzla yayın yapılmasını engelleyen paket kontrolünü ekler. **RC5'in temiz VM kurulumu ve yedek kabulü henüz bekliyor**; kuyruk/yazım ve veri bütünlüğü, ikinci diske taşıma ve tam kurtarma kabulü de tamamlanmış değildir. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 
@@ -14,7 +14,7 @@ Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ex
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates openssl python3
 curl --fail --show-error --location --proto '=https' \
-  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.4/install.sh \
+  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.5/install.sh \
   -o fls-install.sh
 sudo bash fls-install.sh --check
 ```
@@ -37,7 +37,7 @@ Panelde ilk girişte parola değiştirilir. Log alımı başlangıçta kapalıd�
 
 Kurulumdan sonra [FortiGate bağlantı rehberini](docs/fortigate-setup.md) izleyin: boş syslog hedefini bulma, mevcut hedefleri koruyan TCP 5514 komutları, FLS kaynak/kullanıcı izinleri, ilk kaydı doğrulama ve isteğe bağlı salt okunur API hesabı adım adım anlatılır. Çoklu VDOM kapsamını kontrol edin; `root` adı tek başına VDOM modunu göstermez. Mevcut üretim API hesabını test kurulumu için yeniden kullanmayın. [VM kabul sırası](docs/installation.md#ilk-açılış-ve-kabul-sırası).
 
-Veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak kullanılır. RC3 veya önceki bir denemeden RC4'e geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; kurucu mevcut kurulumu yerinde güncellemez.
+Veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak kullanılır. Önceki bir RC denemesinden RC5'e geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; kurucu mevcut kurulumu yerinde güncellemez.
 
 Kaynak checkout'u tek başına kurulum paketi değildir; derlenmiş bileşenleri içermez. Kaynak dizinindeki `bash install.sh --plan` salt okunur ön kontrol verir. `--apply` imzalı sürüm paketini kullanır.
 
