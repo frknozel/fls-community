@@ -14,7 +14,7 @@ USER='fls-cold-query'
 SQL_USER='fls_cold_query'
 CREDENTIAL=Path('/etc/fls/cold-query.json')
 CACHE=Path('/var/cache/fls-cold-query')
-DETAILED=Path('/srv/fortigate/archive/detailed')
+DETAILED=Path('/srv/fls-server/archive/detailed')
 READ_TABLES=('cold_snapshots','cold_snapshot_devices')
 COLUMN_GRANTS={
  'users':('id','enabled','session_version'),
@@ -72,7 +72,7 @@ def read_existing():
 
 def main():
  if os.geteuid()!=0:raise SystemExit('Root required')
- for path in ['/etc/fls','/var/cache','/srv/fortigate','/srv/fortigate/archive']:directory(path)
+ for path in ['/etc/fls','/var/cache','/srv/fls-server','/srv/fls-server/archive']:directory(path)
  try:account=pwd.getpwnam(USER)
  except KeyError:
   command(['useradd','--system','--user-group','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',USER]);account=pwd.getpwnam(USER)

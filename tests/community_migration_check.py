@@ -390,8 +390,17 @@ class LinuxAdapterTests(unittest.TestCase):
         self.assertEqual(result['depot_identity'],DISK['physical_identity']);self.assertNotIn('depot_wwn',result)
         mount_files=list((self.folder/'etc/systemd/system').glob('*.mount'));self.assertEqual(len(mount_files),7)
         self.assertTrue(any('DB-Dump' in path.read_text() for path in mount_files))
+        expected = {
+            r'srv-fls\x2dstorage.mount', r'srv-fls\x2dserver-raw.mount',
+            r'srv-fls\x2dserver-archive.mount', r'srv-fls\x2dserver-metrics.mount',
+            r'srv-fls\x2dserver-backups.mount', r'srv-fls\x2dserver-db\x2ddumps.mount',
+            r'var-lib-fls\x2drecovery\x2ddownload.mount',
+        }
+        self.assertEqual({path.name for path in mount_files}, expected)
+        for path in mount_files:
+            self.assertNotIn('/srv/fortigate', path.read_text())
         dependency=self.folder/'etc/systemd/system/fls-indexer.service.d/91-fls-primary-dependencies.conf'
-        self.assertIn('BindsTo=srv-fls',dependency.read_text());self.assertNotIn('/srv/fortigate/queue',dependency.read_text())
+        self.assertIn('BindsTo=srv-fls',dependency.read_text());self.assertNotIn('/srv/fls-server/queue',dependency.read_text())
 
 
 class WorkerContractTests(unittest.TestCase):

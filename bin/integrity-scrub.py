@@ -28,7 +28,7 @@ def main():
             print(json.dumps({'status':'busy'}));return 0
         public=load_public('/var/www/fls/public/archive-public-key.pem')
         db=pymysql.connect(unix_socket='/run/mysqld/mysqld.sock',user=config['user'],password=config['password'],database='fls',charset='utf8mb4',autocommit=False,connect_timeout=5,read_timeout=10,write_timeout=10)
-        try:result=run_scrub(Store(db),public,Path('/srv/fortigate/raw'),Path('/srv/fortigate/archive/manifests'),STATE,Path('/usr/lib/fls/fls-archive-hash'),config)
+        try:result=run_scrub(Store(db),public,Path('/srv/fls-server/raw'),Path('/srv/fls-server/archive/manifests'),STATE,Path('/usr/lib/fls/fls-archive-hash'),config)
         finally:db.close()
         print(json.dumps(result));return 0 if result['status']!='failed' else 1
     finally:os.close(lock)

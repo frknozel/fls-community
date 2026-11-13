@@ -3,7 +3,7 @@ Description=FortiGate raw syslog collector
 Documentation=https://docs.rsyslog.com/doc/
 Wants=network-online.target
 After=network-online.target
-RequiresMountsFor=/srv/fortigate
+RequiresMountsFor=/srv/fls-server
 
 [Service]
 Type=simple
@@ -27,7 +27,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 CapabilityBoundingSet=
-ReadWritePaths=/srv/fortigate/raw /srv/fortigate/queue /srv/fortigate/metrics
+ReadWritePaths=/srv/fls-server/raw /srv/fls-server/queue /srv/fls-server/metrics
 
 [Install]
 WantedBy=multi-user.target

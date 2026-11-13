@@ -2,7 +2,7 @@
 Description=FLS explicit administrator system backup jobs
 After=mariadb.service network-online.target
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/backups /var/lib/fls-recovery-download
+RequiresMountsFor=/srv/fls-server/backups /var/lib/fls-recovery-download
 
 [Service]
 Type=oneshot
@@ -26,7 +26,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-ReadWritePaths=/var/lib/fls-backup-worker /var/lib/fls-recovery-download /srv/fortigate/backups
+ReadWritePaths=/var/lib/fls-backup-worker /var/lib/fls-recovery-download /srv/fls-server/backups
 
 [Install]
 WantedBy=multi-user.target

@@ -219,9 +219,9 @@ def sample(root,runtime,proc=Path('/proc'),summary=None):
 
 def main():
     from fls_storage import storage_state
-    p=argparse.ArgumentParser();p.add_argument('--root',default='/srv/fortigate');p.add_argument('--runtime',default='/run/fls-telemetry');p.add_argument('--summary-reader',default=str(Path(__file__).with_name('telemetry-index.php')));args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--root',default='/srv/fls-server');p.add_argument('--runtime',default='/run/fls-telemetry');p.add_argument('--summary-reader',default=str(Path(__file__).with_name('telemetry-index.php')));args=p.parse_args()
     root=Path(args.root);runtime=Path(args.runtime);runtime.mkdir(exist_ok=True)
-    if args.root=='/srv/fortigate':storage_state()
+    if args.root=='/srv/fls-server':storage_state()
     with (runtime/'sample.lock').open('w') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);sample(root,runtime,summary=summary_index(args.summary_reader))
 

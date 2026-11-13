@@ -1,6 +1,8 @@
 # Temiz Ubuntu VM ile kurulum denemesi
 
-İlk sürüm `v0.76.0-rc.3`, ayrı VM kabul testi bekleyen bir test sürümüdür. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
+`v0.76.0-rc.4`, ayrı VM üzerinde uçtan uca kabul testi bekleyen bir test sürümüdür. RC3 ile temiz Ubuntu kurulumu, yönetici girişi ve tek disk envanteri doğrulandı; kayıt alımı, ikinci diske taşıma ve tam kurtarma kabulü sürüyor. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
+
+Bu sürümün mantıksal veri kökü `/srv/fls-server` dizinidir. MariaDB/indeksler ve geçici teslim kuyruğu sistem diskinde bu kökte tutulur. Ayrı depo diski `/srv/fls-storage` altında bağlanır; log ve yedek dizinleri bu depodan mantıksal köke bağlanır. RC3 veya daha eski bir denemeden geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; `--apply` yerinde güncelleme veya eski yedeği dönüştürme aracı değildir.
 
 ## VM hazırlığı
 

@@ -2,7 +2,7 @@
 Description=FLS daily verified configuration-only MariaDB dump
 After=mariadb.service
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/db-dumps
+RequiresMountsFor=/srv/fls-server/db-dumps
 
 [Service]
 Type=oneshot
@@ -24,4 +24,4 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
-ReadWritePaths=/var/lib/fls-db-dump /srv/fortigate/db-dumps
+ReadWritePaths=/var/lib/fls-db-dump /srv/fls-server/db-dumps

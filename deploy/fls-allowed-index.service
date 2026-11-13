@@ -31,7 +31,7 @@ LockPersonality=true
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX
 ReadOnlyPaths=/var/lib/fls-license
-InaccessiblePaths=/etc/fls /srv/fortigate /var/log -/var/lib/fls -/var/cache/fls
+InaccessiblePaths=/etc/fls /srv/fls-server /var/log -/var/lib/fls -/var/cache/fls
 
 [Install]
 WantedBy=multi-user.target

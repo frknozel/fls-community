@@ -381,22 +381,22 @@ class HostOps:
         require(COLLECTOR + '/sbin/rsyslogd' in seen, 'collector_binary_missing')
 
     def storage(self, source, plan, release):
-        self.directory('/srv/fortigate', mode=0o755)
+        self.directory('/srv/fls-server', mode=0o755)
         for name in ('raw', 'queue', 'metrics'):
-            self.directory('/srv/fortigate/' + name, mode=0o750, user='syslog', group='adm')
-        self.directory('/srv/fortigate/metrics/fortigate', mode=0o750, user='fls-api', group='adm')
-        self.directory('/srv/fortigate/metrics/change-alerts', mode=0o750, user='fls-alerts', group='adm')
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-api:--x,u:fls-alerts:--x', '/srv/fortigate/metrics'])
-        self.directory('/srv/fortigate/metrics/telemetry', mode=0o750, user='syslog', group='adm')
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-web:r-x,d:u:fls-web:r-x', '/srv/fortigate/metrics/fortigate', '/srv/fortigate/metrics/telemetry', '/srv/fortigate/metrics/change-alerts'])
-        self.directory('/srv/fortigate/archive', mode=0o755)
+            self.directory('/srv/fls-server/' + name, mode=0o750, user='syslog', group='adm')
+        self.directory('/srv/fls-server/metrics/fortigate', mode=0o750, user='fls-api', group='adm')
+        self.directory('/srv/fls-server/metrics/change-alerts', mode=0o750, user='fls-alerts', group='adm')
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-api:--x,u:fls-alerts:--x', '/srv/fls-server/metrics'])
+        self.directory('/srv/fls-server/metrics/telemetry', mode=0o750, user='syslog', group='adm')
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-web:r-x,d:u:fls-web:r-x', '/srv/fls-server/metrics/fortigate', '/srv/fls-server/metrics/telemetry', '/srv/fls-server/metrics/change-alerts'])
+        self.directory('/srv/fls-server/archive', mode=0o755)
         for name, owner in (('manifests', 'fls-integrity'), ('detailed', 'fls-cold'),
                             ('packages', 'fls-export'), ('timestamps', 'fls-tsa')):
-            self.directory('/srv/fortigate/archive/' + name, mode=0o750, user=owner)
-        self.directory('/srv/fortigate/database', mode=0o711)
-        self.directory('/srv/fortigate/database/mysql', mode=0o750, user='mysql')
-        self.directory('/srv/fortigate/backups', mode=0o700)
-        self.directory('/srv/fortigate/db-dumps', mode=0o700)
+            self.directory('/srv/fls-server/archive/' + name, mode=0o750, user=owner)
+        self.directory('/srv/fls-server/database', mode=0o711)
+        self.directory('/srv/fls-server/database/mysql', mode=0o750, user='mysql')
+        self.directory('/srv/fls-server/backups', mode=0o700)
+        self.directory('/srv/fls-server/db-dumps', mode=0o700)
         for path, owner, group, mode in (
             ('/var/lib/fls', 'fls-web', 'fls-web', 0o700),
             ('/var/lib/fls/sessions', 'fls-web', 'fls-web', 0o700),
@@ -417,18 +417,18 @@ class HostOps:
         self.write('/var/lib/fls-maintenance/paused', 'Initial installation: complete FortiGate onboarding before resuming.\n', mode=0o600)
         self.write('/var/lib/fls-disks/attempt.json', json.dumps({'schema': 1, 'high_water': 0, 'last': None}) + '\n', mode=0o600)
         self.write('/var/lib/fls-disks/token-key.json', json.dumps({'key': secrets.token_hex(32)}) + '\n', mode=0o600)
-        for path in ('/srv/fortigate/raw', '/srv/fortigate/metrics', '/srv/fortigate/archive/manifests'):
+        for path in ('/srv/fls-server/raw', '/srv/fls-server/metrics', '/srv/fls-server/archive/manifests'):
             self.run(['/usr/bin/setfacl', '-m', 'u:fls-web:r-x,d:u:fls-web:r-x', path])
-        for path in ('/srv/fortigate/raw', '/srv/fortigate/archive/manifests'):
+        for path in ('/srv/fls-server/raw', '/srv/fls-server/archive/manifests'):
             self.run(['/usr/bin/setfacl', '-m', 'u:fls-scrub:r-x,d:u:fls-scrub:r-x', path])
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-export:r-x', '/srv/fortigate/raw', '/srv/fortigate/archive/manifests'])
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-export:r-x,d:u:fls-export:r-x', '/srv/fortigate/raw'])
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-web:r-x,d:u:fls-web:r-x,u:fls-tsa:r-x,d:u:fls-tsa:r-x', '/srv/fortigate/archive/packages'])
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-web:r-x,d:u:fls-web:r-x', '/srv/fortigate/archive/timestamps'])
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-export:r-x,d:u:fls-export:r-x', '/srv/fortigate/archive/manifests'])
-        self.run(['/usr/bin/setfacl', '-m', 'u:fls-integrity:r-x,d:u:fls-integrity:r-x', '/srv/fortigate/raw'])
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-export:r-x', '/srv/fls-server/raw', '/srv/fls-server/archive/manifests'])
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-export:r-x,d:u:fls-export:r-x', '/srv/fls-server/raw'])
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-web:r-x,d:u:fls-web:r-x,u:fls-tsa:r-x,d:u:fls-tsa:r-x', '/srv/fls-server/archive/packages'])
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-web:r-x,d:u:fls-web:r-x', '/srv/fls-server/archive/timestamps'])
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-export:r-x,d:u:fls-export:r-x', '/srv/fls-server/archive/manifests'])
+        self.run(['/usr/bin/setfacl', '-m', 'u:fls-integrity:r-x,d:u:fls-integrity:r-x', '/srv/fls-server/raw'])
         self.run(['/usr/bin/setfacl', '-m', 'u:fls-cold-query:r-x,d:u:fls-cold-query:r-x,u:fls-web:r-x,d:u:fls-web:r-x',
-                  '/srv/fortigate/archive/detailed'])
+                  '/srv/fls-server/archive/detailed'])
 
     def connect(self):
         import pymysql
@@ -438,16 +438,16 @@ class HostOps:
         self.run(['/usr/bin/systemctl', 'stop', 'mariadb.service'])
         # Package-maintainer initialization is intentionally not copied. This new
         # private datadir is initialized once, after the durable phase intent.
-        self.run(['/usr/bin/mariadb-install-db', '--user=mysql', '--datadir=/srv/fortigate/database/mysql',
+        self.run(['/usr/bin/mariadb-install-db', '--user=mysql', '--datadir=/srv/fls-server/database/mysql',
                   '--auth-root-authentication-method=socket', '--skip-test-db'], timeout=180)
         pool = plan['sizing_proposal']['mariadb_buffer_pool_bytes']
-        self.write('/etc/mysql/mariadb.conf.d/90-fls.cnf', '[mysqld]\ndatadir=/srv/fortigate/database/mysql\n'
+        self.write('/etc/mysql/mariadb.conf.d/90-fls.cnf', '[mysqld]\ndatadir=/srv/fls-server/database/mysql\n'
                    f'bind-address=127.0.0.1\ninnodb_buffer_pool_size={pool}\n'
                    'innodb_flush_log_at_trx_commit=1\ninnodb_flush_method=O_DIRECT\n'
                    'max_allowed_packet=64M\nmax_connections=40\ncharacter-set-server=utf8mb4\n'
                    'collation-server=utf8mb4_unicode_ci\nskip-name-resolve\nlocal-infile=0\n')
         self.write('/etc/systemd/system/mariadb.service.d/fls-storage.conf',
-                   '[Unit]\nRequiresMountsFor=/srv/fortigate/database/mysql\n[Service]\nReadWritePaths=/srv/fortigate/database/mysql\n')
+                   '[Unit]\nRequiresMountsFor=/srv/fls-server/database/mysql\n[Service]\nReadWritePaths=/srv/fls-server/database/mysql\n')
         self.run(['/usr/bin/systemctl', 'daemon-reload'])
         self.run(['/usr/bin/systemctl', 'start', 'mariadb.service'])
         connection = self.connect()
@@ -595,7 +595,7 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 RestrictAddressFamilies=AF_UNIX
-ReadOnlyPaths=/srv/fortigate/raw
+ReadOnlyPaths=/srv/fls-server/raw
 MemoryMax=1G
 [Install]
 WantedBy=multi-user.target
@@ -615,8 +615,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/srv/fortigate/raw
-ReadWritePaths=/srv/fortigate/archive/manifests
+ReadOnlyPaths=/srv/fls-server/raw
+ReadWritePaths=/srv/fls-server/archive/manifests
 RestrictAddressFamilies=AF_UNIX
 ''')
         self.write('/etc/systemd/system/fortigate-health.timer', '[Unit]\nDescription=FLS local health snapshot\n[Timer]\nOnBootSec=30\nOnUnitActiveSec=60\n[Install]\nWantedBy=timers.target\n')

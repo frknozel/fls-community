@@ -26,16 +26,16 @@ for name in ['fls-web','fls-index','fls-integrity','fls-search']:
     except KeyError: run('useradd','--system','--user-group','--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',name)
 run('usermod','-a','-G','adm','fls-index')
 run('usermod','-a','-G','adm','fls-integrity')
-for path,owner,mode in [('/etc/fls','root',0o755),('/etc/fls/private','fls-integrity',0o700),('/var/lib/fls','fls-web',0o700),('/var/lib/fls/sessions','fls-web',0o700),('/var/cache/fls','fls-web',0o700),('/srv/fortigate/archive/manifests','fls-integrity',0o750)]:
+for path,owner,mode in [('/etc/fls','root',0o755),('/etc/fls/private','fls-integrity',0o700),('/var/lib/fls','fls-web',0o700),('/var/lib/fls/sessions','fls-web',0o700),('/var/cache/fls','fls-web',0o700),('/srv/fls-server/archive/manifests','fls-integrity',0o750)]:
     Path(path).mkdir(parents=True,exist_ok=True);shutil.chown(path,user=owner,group=owner);Path(path).chmod(mode)
 run('systemctl','stop','mariadb')
-dest=Path('/srv/fortigate/database/mysql')
+dest=Path('/srv/fls-server/database/mysql')
 if not dest.exists():
     dest.mkdir();run('cp','-a','/var/lib/mysql/.',str(dest))
     run('chown','-R','mysql:mysql',str(dest))
-run('chmod','0711','/srv/fortigate/database')
+run('chmod','0711','/srv/fls-server/database')
 put('/etc/mysql/mariadb.conf.d/90-fls.cnf','''[mysqld]
-datadir=/srv/fortigate/database/mysql
+datadir=/srv/fls-server/database/mysql
 bind-address=127.0.0.1
 innodb_buffer_pool_size=4G
 innodb_log_file_size=512M
@@ -49,9 +49,9 @@ skip-name-resolve
 local-infile=0
 ''')
 put('/etc/systemd/system/mariadb.service.d/fls-storage.conf','''[Unit]
-RequiresMountsFor=/srv/fortigate/database/mysql
+RequiresMountsFor=/srv/fls-server/database/mysql
 [Service]
-ReadWritePaths=/srv/fortigate/database/mysql
+ReadWritePaths=/srv/fls-server/database/mysql
 ''')
 run('systemctl','daemon-reload');run('systemctl','start','mariadb')
 db=pymysql.connect(unix_socket='/run/mysqld/mysqld.sock',user='root',autocommit=True,charset='utf8mb4')
@@ -117,9 +117,9 @@ if not keypath.exists():
     keypath.write_bytes(key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption()));keypath.chmod(0o600);shutil.chown(keypath,user='fls-integrity',group='fls-integrity')
 else: key=serialization.load_pem_private_key(keypath.read_bytes(),password=None)
 put('/var/www/fls/public/archive-public-key.pem',key.public_key().public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo).decode())
-run('setfacl','-m','u:fls-web:r-x','/srv/fortigate/raw','/srv/fortigate/metrics','/srv/fortigate/archive','/srv/fortigate/archive/manifests')
-run('setfacl','-d','-m','u:fls-web:r-x','/srv/fortigate/raw','/srv/fortigate/metrics','/srv/fortigate/archive/manifests')
-for path in list(Path('/srv/fortigate/raw').glob('*.jsonl'))+list(Path('/srv/fortigate/metrics').glob('*.json')):
+run('setfacl','-m','u:fls-web:r-x','/srv/fls-server/raw','/srv/fls-server/metrics','/srv/fls-server/archive','/srv/fls-server/archive/manifests')
+run('setfacl','-d','-m','u:fls-web:r-x','/srv/fls-server/raw','/srv/fls-server/metrics','/srv/fls-server/archive/manifests')
+for path in list(Path('/srv/fls-server/raw').glob('*.jsonl'))+list(Path('/srv/fls-server/metrics').glob('*.json')):
     run('setfacl','-m','u:fls-web:r--',str(path))
 put('/etc/php/8.3/fpm/pool.d/fls.conf','''[fls]
 user = fls-web
@@ -158,7 +158,7 @@ put('/etc/systemd/system/fls-indexer.service','''[Unit]
 Description=FLS resumable FortiGate log indexer
 After=mariadb.service fortigate-collector.service
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/raw
+RequiresMountsFor=/srv/fls-server/raw
 [Service]
 User=fls-index
 Group=fls-index
@@ -179,7 +179,7 @@ ProtectHome=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictAddressFamilies=AF_UNIX
-ReadOnlyPaths=/srv/fortigate/raw
+ReadOnlyPaths=/srv/fls-server/raw
 [Install]
 WantedBy=multi-user.target
 ''')
@@ -187,7 +187,7 @@ put('/etc/systemd/system/fls-integrity.service','''[Unit]
 Description=FLS local archive signature and integrity verification
 After=mariadb.service
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/raw /srv/fortigate/archive
+RequiresMountsFor=/srv/fls-server/raw /srv/fls-server/archive
 [Service]
 Type=oneshot
 User=fls-integrity
@@ -200,8 +200,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/srv/fortigate/raw
-ReadWritePaths=/srv/fortigate/archive/manifests
+ReadOnlyPaths=/srv/fls-server/raw
+ReadWritePaths=/srv/fls-server/archive/manifests
 RestrictAddressFamilies=AF_UNIX
 ''')
 put('/etc/systemd/system/fls-integrity.timer','''[Unit]

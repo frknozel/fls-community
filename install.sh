@@ -2,9 +2,9 @@
 # FLS Community signed-release bootstrap. No disks are partitioned here.
 set -euo pipefail
 umask 077
-readonly release_tag='v0.76.0-rc.3'
+readonly release_tag='v0.76.0-rc.4'
 readonly release_version='0.76.0'
-readonly release_name='fls-community-0.76.0-rc.3-linux-amd64.tar.gz'
+readonly release_name='fls-community-0.76.0-rc.4-linux-amd64.tar.gz'
 readonly release_base="https://github.com/frknozel/fls-community/releases/download/${release_tag}"
 mode='plan'
 explicit_mode=''
@@ -32,7 +32,7 @@ fi
 [[ "$EUID" == 0 ]] || { printf '%s\n' 'Run the standalone installer or checker as root.' >&2; exit 2; }
 # Apply refuses existing installations before downloads. Check/plan may inspect them.
 if [[ "$mode" == 'apply' ]]; then
-    for marker in /etc/fls /var/www/fls /var/lib/fls-community-install /srv/fortigate /srv/fls-storage /var/lib/mysql/mysql; do
+    for marker in /etc/fls /var/www/fls /var/lib/fls-community-install /srv/fls-server /srv/fortigate /srv/fls-storage /var/lib/mysql/mysql; do
         if [[ -e "$marker" || -L "$marker" ]]; then
             printf '%s\n' 'Fresh Ubuntu required. Existing FLS/database/storage state was detected.' >&2
             exit 2

@@ -26,4 +26,4 @@ LockPersonality=true
 RestrictAddressFamilies=AF_UNIX
 CapabilityBoundingSet=
 ReadWritePaths=/var/lib/fls-power
-InaccessiblePaths=-/srv/fortigate -/etc/fls -/var/lib/fls -/var/log
+InaccessiblePaths=-/srv/fls-server -/etc/fls -/var/lib/fls -/var/log

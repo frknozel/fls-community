@@ -8,6 +8,8 @@
 
 Bu geçiş işçisi uygulanmıştır; ayrı boş VM'de uçtan uca disk/yeniden başlatma kabulü henüz tamamlanmamıştır. İlk denemeyi snapshot'lı VM'de yapın.
 
+Uygulamanın veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak sabittir. MariaDB `/srv/fls-server/database/mysql`, geçici kuyruk `/srv/fls-server/queue` altında sistem diskinde kalır. `/opt/fortigate` collector çalışma zamanı ve `/etc/fortigate` collector yapılandırması için korunur.
+
 ## Panelde ikinci disk
 
 **Yönetici → Ayarlar → Disk ve depolama** ekranı disk kimliklerini, rolleri ve dizinleri gösterir. Tek diskli kurulumda uygun ek disk için **hazırla ve kayıtları taşı** işlemi sunulur. Herhangi bir ek disk kendiliğinden seçilmez veya silinmez.
@@ -18,12 +20,12 @@ Bu geçiş işçisi uygulanmıştır; ayrı boş VM'de uçtan uca disk/yeniden b
 
 | Mantıksal yol | Depoda karşılığı |
 | --- | --- |
-| `/srv/fortigate/raw` | `/srv/fls-storage/FLS-Logs/raw` |
-| `/srv/fortigate/archive` | `/srv/fls-storage/FLS-Logs/archive` |
-| `/srv/fortigate/metrics` | `/srv/fls-storage/FLS-Logs/metrics` |
-| `/srv/fortigate/backups` | `/srv/fls-storage/FLS-Backups/staging` |
+| `/srv/fls-server/raw` | `/srv/fls-storage/FLS-Logs/raw` |
+| `/srv/fls-server/archive` | `/srv/fls-storage/FLS-Logs/archive` |
+| `/srv/fls-server/metrics` | `/srv/fls-storage/FLS-Logs/metrics` |
+| `/srv/fls-server/backups` | `/srv/fls-storage/FLS-Backups/staging` |
 | `/var/lib/fls-recovery-download` | `/srv/fls-storage/FLS-Backups/published` |
-| `/srv/fortigate/db-dumps` | `/srv/fls-storage/DB-Dump` |
+| `/srv/fls-server/db-dumps` | `/srv/fls-storage/DB-Dump` |
 
 Kalıcı bind mount'lar uygulamanın kullandığı yolları korur. UUID ile fiziksel kimlik birlikte doğrulanır; depo yoksa SSD'deki boş dizine sessiz yazım yapılmaz. Eski SSD verileri bind mount altında korunur, **otomatik silinmez**. Bu sürümde eski kopyanın alanını boşaltmak ayrı doğrulama ve bakım gerektirir.
 

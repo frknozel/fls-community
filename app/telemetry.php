@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TELEMETRY_ROOT='/srv/fortigate/metrics/telemetry';
+const TELEMETRY_ROOT='/srv/fls-server/metrics/telemetry';
 
 function telemetry_latest(): ?array {
     $value=json_decode(@file_get_contents(TELEMETRY_ROOT.'/latest.json')?:'null',true);

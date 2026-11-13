@@ -154,7 +154,8 @@ def collect_inventory():
     except (PlanError, KeyError, IndexError, TypeError):
         errors.append('disk_inventory_unavailable')
     existing = []
-    for folder in ('/etc/fls', '/var/www/fls', '/srv/fortigate', '/srv/fls-storage', '/srv/fls-mirror'):
+    # Old data roots are admission blockers, never migration/restore aliases.
+    for folder in ('/etc/fls', '/var/www/fls', '/srv/fls-server', '/srv/fortigate', '/srv/fls-storage', '/srv/fls-mirror'):
         path = Path(folder)
         if path.exists() or path.is_symlink():
             existing.append(folder)
@@ -164,7 +165,7 @@ def collect_inventory():
         except OSError:
             errors.append('existing_installation_probe_unavailable')
     databases = []
-    for name in ('/var/lib/mysql', '/srv/fortigate/database/mysql'):
+    for name in ('/var/lib/mysql', '/srv/fls-server/database/mysql', '/srv/fortigate/database/mysql'):
         path = Path(name)
         try:
             if path.is_symlink() or path.exists() and next(path.iterdir(), None) is not None:
@@ -350,7 +351,7 @@ def configuration(inventory, *, bind_ip=None, hostname=None, management_network=
     return {'hostname': proposed_hostname, 'bind_ip': str(selected[0]) if selected else None,
             'collector_ip': str(selected[0]) if selected else None, 'collector_port': 5514,
             'management_network': str(network) if network is not None else None,
-            'timezone': 'Europe/Istanbul', 'data_path': '/srv/fortigate',
+            'timezone': 'Europe/Istanbul', 'data_path': '/srv/fls-server',
             'tls_subject_alternative_names': ([proposed_hostname, str(selected[0])] if selected else [proposed_hostname]),
             'installation_id': 'generated_on_apply',
             'secrets': 'generated_on_apply_never_in_plan'}, errors

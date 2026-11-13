@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/config-impact.php';
-const FGA_ROOT='/srv/fortigate/metrics/change-alerts';
+const FGA_ROOT='/srv/fls-server/metrics/change-alerts';
 const FGA_RULE=['minimum_delta'=>20,'minimum_percent'=>50,'minimum_seconds'=>900,'window_minutes'=>1440,'lookback_hours'=>48,'refresh_seconds'=>300];
 
 function fga_empty(): array {return ['schema'=>1,'device'=>['serial'=>fg_serial(),'vdom'=>fg_vdom()],'checked_at'=>null,'last_success_at'=>null,'status'=>'missing','jobs'=>[],'limited'=>false];}

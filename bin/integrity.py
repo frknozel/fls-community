@@ -48,7 +48,7 @@ def seal(db):
     key=serialization.load_pem_private_key(Path('/etc/fls/private/archive-ed25519.pem').read_bytes(),password=None)
     public=key.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw)
     keyid=hashlib.sha256(public).hexdigest()
-    folder=Path('/srv/fortigate/archive/manifests');folder.mkdir(exist_ok=True)
+    folder=Path('/srv/fls-server/archive/manifests');folder.mkdir(exist_ok=True)
     # Fast path: verify signed metadata, SQL bindings and source size, never
     # reread historical payloads or refresh their last full-SHA timestamp.
     with db.cursor(pymysql.cursors.DictCursor) as c:
@@ -58,7 +58,7 @@ def seal(db):
         name=item['source_file'];known.add(name)
         manifest_path=folder/(name+'.manifest.json')
         try:
-            verify_fast(item,folder,Path('/srv/fortigate/raw'),key.public_key(),previous)
+            verify_fast(item,folder,Path('/srv/fls-server/raw'),key.public_key(),previous)
         except Exception as exc:
             logging.exception('Integrity metadata verification failed: %s',name)
             # Preserve the first proven corruption reason; subsequent signer
@@ -68,7 +68,7 @@ def seal(db):
             raise RuntimeError('Integrity failure; signing halted') from exc
         previous=item['manifest_hash']
     last=existing[-1]['source_file'] if existing else ''
-    health=json.loads(Path('/srv/fortigate/metrics/host-health.json').read_text())
+    health=json.loads(Path('/srv/fls-server/metrics/host-health.json').read_text())
     # Full-history hashing can outlast several health samples. Evaluate their
     # age and closed-hour eligibility at this gate, not at process start.
     now=dt.datetime.now(dt.timezone.utc)
@@ -77,7 +77,7 @@ def seal(db):
         logging.warning('Existing manifests verified. New signing deferred until collector is current. gate=%s',json.dumps(gate,sort_keys=True,allow_nan=False,separators=(',',':')))
         return
     new_seals=0
-    for path in sorted(Path('/srv/fortigate/raw').glob('*.jsonl')):
+    for path in sorted(Path('/srv/fls-server/raw').glob('*.jsonl')):
         if new_seals>=4:break
         if path.name in known: continue
         hour=dt.datetime.strptime(path.stem,'%Y-%m-%d-%H').replace(tzinfo=dt.timezone.utc)

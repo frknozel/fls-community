@@ -81,9 +81,9 @@ def stop_guest_database_service():
 
 def prepare_guest_database_filesystem():
     stop_guest_database_service()
-    for name,mode in [('/srv/fortigate',0o755),('/srv/fortigate/database',0o711)]:
+    for name,mode in [('/srv/fls-server',0o755),('/srv/fls-server/database',0o711)]:
         path=Path(name);path.mkdir(parents=True,exist_ok=True);path.chmod(mode)
-    datadir=Path('/srv/fortigate/database/mysql')
+    datadir=Path('/srv/fls-server/database/mysql')
     original=Path('/var/lib/mysql')
     if original.exists():shutil.move(original,datadir)
     else:
@@ -284,17 +284,17 @@ def restore():
                   safe_restore_verified=True,database_service_datadir=str(datadir))
     phase('target_storage_and_replay_state')
     for name in ['raw','queue','metrics','archive','backups','database/mysql']:
-        path=Path('/srv/fortigate')/name;path.mkdir(parents=True,exist_ok=True)
-    Path('/srv/fortigate').chmod(0o755)
+        path=Path('/srv/fls-server')/name;path.mkdir(parents=True,exist_ok=True)
+    Path('/srv/fls-server').chmod(0o755)
     for name in ['raw','queue','metrics']:
-        path=Path('/srv/fortigate')/name;shutil.chown(path,user='syslog',group='adm');path.chmod(0o750)
-    shutil.chown('/srv/fortigate/archive',user='fls-integrity',group='adm')
-    Path('/srv/fortigate/archive').chmod(0o750)
-    Path('/srv/fortigate/archive/manifests').mkdir(mode=0o750,exist_ok=True)
-    shutil.chown('/srv/fortigate/archive/manifests',user='fls-integrity',group='fls-integrity')
-    Path('/srv/fortigate/backups').chmod(0o700)
+        path=Path('/srv/fls-server')/name;shutil.chown(path,user='syslog',group='adm');path.chmod(0o750)
+    shutil.chown('/srv/fls-server/archive',user='fls-integrity',group='adm')
+    Path('/srv/fls-server/archive').chmod(0o750)
+    Path('/srv/fls-server/archive/manifests').mkdir(mode=0o750,exist_ok=True)
+    shutil.chown('/srv/fls-server/archive/manifests',user='fls-integrity',group='fls-integrity')
+    Path('/srv/fls-server/backups').chmod(0o700)
     for name in ['raw','metrics','archive','archive/manifests']:
-        run(['setfacl','-m','u:fls-web:r-x','/srv/fortigate/'+name])
+        run(['setfacl','-m','u:fls-web:r-x','/srv/fls-server/'+name])
     for path in ['/var/lib/fls-maintenance','/var/lib/fls-power']:
         Path(path).mkdir(mode=0o700,exist_ok=True);Path(path).chmod(0o700)
     marker=Path('/var/lib/fls-maintenance/paused');marker.touch();marker.chmod(0o600)

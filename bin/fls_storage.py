@@ -19,7 +19,7 @@ import stat
 import uuid
 
 CONFIG = Path('/etc/fls/storage.json')
-DATA = Path('/srv/fortigate')
+DATA = Path('/srv/fls-server')
 UDEV = Path('/run/udev/data')
 SYSFS = Path('/sys/dev/block')
 DEPOT = Path('/srv/fls-storage')

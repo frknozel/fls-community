@@ -24,4 +24,4 @@ RestrictSUIDSGID=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX
 ReadWritePaths=/var/lib/fls-maintenance
-InaccessiblePaths=-/srv/fortigate -/etc/fls -/var/lib/fls -/var/log
+InaccessiblePaths=-/srv/fls-server -/etc/fls -/var/lib/fls -/var/log

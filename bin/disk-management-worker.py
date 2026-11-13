@@ -333,7 +333,7 @@ def producer_guard():
                                     capture_output=True, text=True, timeout=10)
             if result.returncode or result.stdout.strip() in ('active','activating','deactivating'):
                 return False
-        paths = (Path('/srv/fortigate/backups'), Path('/var/lib/fls-recovery-download'),
+        paths = (Path('/srv/fls-server/backups'), Path('/var/lib/fls-recovery-download'),
                  Path('/srv/fls-storage/DB-Dump'))
         markers = [(str(p), p.stat().st_dev, p.stat().st_ino, p.stat().st_mtime_ns) for p in paths]
         if baseline is None:

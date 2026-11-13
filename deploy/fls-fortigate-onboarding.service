@@ -1,7 +1,7 @@
 [Unit]
 Description=Validate FLS FortiGate onboarding and reconcile syslog sender permissions
 After=mariadb.service fortigate-collector.service
-RequiresMountsFor=/srv/fortigate
+RequiresMountsFor=/srv/fls-server
 
 [Service]
 Type=oneshot
@@ -25,7 +25,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 CapabilityBoundingSet=CAP_CHOWN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
 RestrictAddressFamilies=AF_UNIX
-ReadWritePaths=/run/fls-onboarding /etc/fortigate /srv/fortigate/metrics
-InaccessiblePaths=/srv/fortigate/queue /srv/fortigate/archive /srv/fortigate/backups /etc/fls
-ReadOnlyPaths=/srv/fortigate/raw
+ReadWritePaths=/run/fls-onboarding /etc/fortigate /srv/fls-server/metrics
+InaccessiblePaths=/srv/fls-server/queue /srv/fls-server/archive /srv/fls-server/backups /etc/fls
+ReadOnlyPaths=/srv/fls-server/raw
 

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/management.php';
 const FLS_COLD_QUERY_SOCKET='/run/fls-cold-query.sock';
-const FLS_COLD_BROWSE_RAW='/srv/fortigate/raw';
+const FLS_COLD_BROWSE_RAW='/srv/fls-server/raw';
 const FLS_COLD_QUERY_RESPONSE=4194304;
 function cold_browse_scope(): array {fg_require_access();return fg_selected_device();}
 function cold_browse_uint(mixed $value,string $field='Kimlik'): string {

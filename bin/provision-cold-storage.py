@@ -30,7 +30,7 @@ def write_new(path,data,mode):
     with os.fdopen(fd,'wb') as f:f.write(data);f.flush();os.fsync(f.fileno());os.fchmod(f.fileno(),mode);os.fchown(f.fileno(),0,0)
 def main():
     if os.geteuid()!=0:raise SystemExit('Root required')
-    for parent in [Path('/etc/fls'),Path('/srv/fortigate/archive')]:
+    for parent in [Path('/etc/fls'),Path('/srv/fls-server/archive')]:
         s=parent.lstat()
         if not stat.S_ISDIR(s.st_mode) or s.st_uid!=0 or s.st_mode&0o022:raise ValueError('unsafe_parent_directory')
     try:account=pwd.getpwnam('fls-cold')
@@ -58,7 +58,7 @@ def main():
                 c.execute('GRANT SELECT ON fls.'+table+' TO fls_app@localhost')
     finally:db.close()
     if not credential.exists():write_new(credential,(json.dumps(config)+'\n').encode(),0o600)
-    target=Path('/srv/fortigate/archive/detailed')
+    target=Path('/srv/fls-server/archive/detailed')
     if target.is_symlink():raise ValueError('unsafe_detailed_directory')
     target.mkdir(mode=0o750,exist_ok=True)
     info=target.lstat()

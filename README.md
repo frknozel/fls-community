@@ -2,7 +2,7 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.3 bir test sürümüdür.** Kurulum motoru, imzalı dağıtım paketi ve ikinci diske taşıma işçisi uygulanmıştır. Ayrı, temiz Ubuntu VM üzerinde baştan sona kabul testi henüz tamamlanmamıştır. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
+**0.76.0-rc.4 bir test sürümüdür.** Kurulum motoru, imzalı dağıtım paketi ve ikinci diske taşıma işçisi uygulanmıştır. Ayrı, temiz Ubuntu VM üzerinde baştan sona kabul testi henüz tamamlanmamıştır. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 
@@ -14,7 +14,7 @@ Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ex
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates openssl python3
 curl --fail --show-error --location --proto '=https' \
-  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.3/install.sh \
+  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.4/install.sh \
   -o fls-install.sh
 sudo bash fls-install.sh --check
 ```
@@ -34,6 +34,8 @@ sudo cat /etc/fls/bootstrap-credentials.txt
 ```
 
 Panelde ilk girişte parola değiştirilir. Log alımı başlangıçta kapalıdır; FortiGate bağlantısını tanımladıktan sonra bakım ekranından açıkça başlatılır. Harici aktarım ve ücretli zaman damgası işleri kendiliğinden açılmaz.
+
+Veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak kullanılır. RC3 veya önceki bir denemeden RC4'e geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; kurucu mevcut kurulumu yerinde güncellemez.
 
 Kaynak checkout'u tek başına kurulum paketi değildir; derlenmiş bileşenleri içermez. Kaynak dizinindeki `bash install.sh --plan` salt okunur ön kontrol verir. `--apply` imzalı sürüm paketini kullanır.
 

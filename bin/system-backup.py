@@ -45,7 +45,7 @@ SEED_TABLES = (
     'power_requests', 'power_state', 'system_backup_worker', 'disk_management_state',
 )
 SOURCE = Path('/var/www/fls')
-DESTINATION = Path('/srv/fortigate/backups')
+DESTINATION = Path('/srv/fls-server/backups')
 FIXED_PATHS = (
     'var/www/fls', 'etc/fls', 'etc/nginx', 'etc/php/8.3/fpm',
     'etc/php/8.3/mods-available', 'etc/mysql', 'etc/alternatives/my.cnf',
@@ -60,9 +60,9 @@ FIXED_PATHS = (
 )
 LICENSE_FILES = ()
 HDD_BIND_UNITS = (
-    'srv-fortigate-raw.mount', 'srv-fortigate-archive.mount',
-    'srv-fortigate-queue.mount', 'srv-fortigate-metrics.mount',
-    'srv-fortigate-backups.mount', r'srv-fortigate-db\x2ddumps.mount',
+    r'srv-fls\x2dserver-raw.mount', r'srv-fls\x2dserver-archive.mount',
+    r'srv-fls\x2dserver-queue.mount', r'srv-fls\x2dserver-metrics.mount',
+    r'srv-fls\x2dserver-backups.mount', r'srv-fls\x2dserver-db\x2ddumps.mount',
     r'var-lib-fls\x2drecovery\x2ddownload.mount',
     r'srv-fls\x2dmirror.mount',
 )
@@ -418,15 +418,15 @@ def inventory_files(inventory, paths, stderr):
                 if line.startswith(('fls-', 'fortigate-', 'mariadb.', 'nginx.', 'php8.3-fpm.'))
                 or line.split() and line.split()[0] in (*HDD_BIND_UNITS, HDD_DEPOT_UNIT)]
     (inventory / 'unit-file-states.txt').write_text('\n'.join(selected) + '\n')
-    directories = [Path('/srv/fortigate'), Path('/srv/fortigate/raw'),
-                   Path('/srv/fortigate/queue'), Path('/srv/fortigate/metrics'),
-                   Path('/srv/fortigate/archive'), Path('/srv/fortigate/archive/manifests'),
-                   Path('/srv/fortigate/archive/packages'), Path('/srv/fortigate/archive/timestamps'),
-                   Path('/srv/fortigate/archive/timestamps/attempts'),
-                   Path('/srv/fortigate/archive/timestamps/proofs'),
-                   Path('/srv/fortigate/archive/detailed'),
-                   Path('/srv/fortigate/database'), Path('/srv/fortigate/database/mysql'),
-                   Path('/srv/fortigate/db-dumps'),
+    directories = [Path('/srv/fls-server'), Path('/srv/fls-server/raw'),
+                   Path('/srv/fls-server/queue'), Path('/srv/fls-server/metrics'),
+                   Path('/srv/fls-server/archive'), Path('/srv/fls-server/archive/manifests'),
+                   Path('/srv/fls-server/archive/packages'), Path('/srv/fls-server/archive/timestamps'),
+                   Path('/srv/fls-server/archive/timestamps/attempts'),
+                   Path('/srv/fls-server/archive/timestamps/proofs'),
+                   Path('/srv/fls-server/archive/detailed'),
+                   Path('/srv/fls-server/database'), Path('/srv/fls-server/database/mysql'),
+                   Path('/srv/fls-server/db-dumps'),
                    Path('/srv/fls-storage'), Path('/srv/fls-storage/FLS-Logs'),
                    Path('/srv/fls-storage/FLS-Logs/raw'),
                    Path('/srv/fls-storage/FLS-Logs/archive'),

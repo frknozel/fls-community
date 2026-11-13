@@ -260,7 +260,7 @@ try {
         require_once __DIR__.'/../app/archive-status.php';
         db()->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY');
         $archiveIndex=archive_index_status();$mailSearchIndex=mail_search_index_status();
-        $health=json_decode(@file_get_contents('/srv/fortigate/metrics/host-health.json')?:'{}',true);
+        $health=json_decode(@file_get_contents('/srv/fls-server/metrics/host-health.json')?:'{}',true);
         $files=query('SELECT COUNT(*) files,SUM(byte_offset) indexed_bytes,SUM(observed_size) observed_bytes,SUM(line_number) `lines`,SUM(invalid_rows) invalid_rows,MAX(updated_at) indexed_at FROM source_files')[0];
         $last=query('SELECT event_at,received_at FROM events ORDER BY event_at DESC,id DESC LIMIT 1')[0]??null;
         require __DIR__.'/../app/telemetry.php';
@@ -517,7 +517,7 @@ try {
         if(!$row) json_response(['error'=>'Kayıt bulunamadı.'],404);
         $fields=json_decode($row['fields'],true,512,JSON_THROW_ON_ERROR);$raw=null;$verified=false;
         if(preg_match('/^\d{4}-\d{2}-\d{2}-\d{2}\.jsonl$/D',$row['source_file'])) {
-            $stream=fopen('/srv/fortigate/raw/'.$row['source_file'],'rb');if($stream){fseek($stream,(int)$row['byte_offset']);$line=fread($stream,(int)$row['byte_length']);fclose($stream);$env=json_decode($line,true);$raw=$env['raw']??null;if($raw!==null)$verified=hash_equals(strtolower($row['raw_sha256']),hash('sha256',$raw));}
+            $stream=fopen('/srv/fls-server/raw/'.$row['source_file'],'rb');if($stream){fseek($stream,(int)$row['byte_offset']);$line=fread($stream,(int)$row['byte_length']);fclose($stream);$env=json_decode($line,true);$raw=$env['raw']??null;if($raw!==null)$verified=hash_equals(strtolower($row['raw_sha256']),hash('sha256',$raw));}
         }
         $related=[];
         if(event_feature_allowed('analysis') && (int)$row['sessionid']>0 && $row['srcip']!=='' && $row['dstip']!=='') {

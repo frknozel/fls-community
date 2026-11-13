@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import pymysql
 import fortigate_compat as compatibility
-BASE=Path('/srv/fortigate/metrics/fortigate');AAD=b'FLS-FortiGate-v1'
+BASE=Path('/srv/fls-server/metrics/fortigate');AAD=b'FLS-FortiGate-v1'
 
 def private_file(name,limit=16384):
     folder=os.environ.get('CREDENTIALS_DIRECTORY');path=(Path(folder)/name) if folder else Path('/etc/fls')/name

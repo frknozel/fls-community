@@ -90,7 +90,7 @@ function timestamp_download(): never {
  $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$id)throw new ManagementError('Damga kimliği geçersiz.');
  $row=query("SELECT filename,sha256,bytes FROM timestamp_stamps WHERE id=? AND status='verified'",[$id])[0]??null;
  if(!$row||!preg_match('/^fls-[0-9-]{13}-[a-f0-9]{16}\.tar\.gz\.timestamp-[a-f0-9]{16}\.tar\.gz$/D',$row['filename']))throw new ManagementError('Doğrulanmış damga belgesi bulunamadı.',404);
- $path='/srv/fortigate/archive/timestamps/proofs/'.$row['filename'];$stat=@lstat($path);
+ $path='/srv/fls-server/archive/timestamps/proofs/'.$row['filename'];$stat=@lstat($path);
  if(!$stat||($stat['mode']&0170000)!==0100000||$stat['size']!==(int)$row['bytes'])throw new ManagementError('Damga dosyası kullanılamıyor.',409);
  $f=@fopen($path,'rb');if(!$f)throw new ManagementError('Dosya okunamadı.',503);$h=hash_init('sha256');hash_update_stream($h,$f);
  if(!hash_equals($row['sha256'],hash_final($h))){fclose($f);throw new ManagementError('Damga dosyası bütünlük hatası.',409);}rewind($f);audit('timestamp_download','stamp_id='.$id);

@@ -1,6 +1,6 @@
 [Unit]
 Description=Record FLS mail search backlog alert history
-RequiresMountsFor=/srv/fortigate
+RequiresMountsFor=/srv/fls-server
 After=mariadb.service
 
 [Service]
@@ -22,5 +22,5 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 ReadWritePaths=/run/fls-mail-backlog-history
-InaccessiblePaths=/srv/fortigate/raw /srv/fortigate/queue /srv/fortigate/archive /srv/fortigate/backups /etc/fls/private
+InaccessiblePaths=/srv/fls-server/raw /srv/fls-server/queue /srv/fls-server/archive /srv/fls-server/backups /etc/fls/private
 RestrictAddressFamilies=AF_UNIX

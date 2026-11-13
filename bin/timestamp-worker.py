@@ -148,12 +148,12 @@ class Worker:
    self.heartbeat('stamping');self.process(job)
   self.automatic_balance();self.send_evidence();self.heartbeat('idle')
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('--credential',required=True);p.add_argument('--key',required=True);a=p.parse_args();root=Path('/srv/fortigate/archive/timestamps')
+ p=argparse.ArgumentParser();p.add_argument('--credential',required=True);p.add_argument('--key',required=True);a=p.parse_args();root=Path('/srv/fls-server/archive/timestamps')
  with open(root/'.worker.lock','w') as lock:
   try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   except BlockingIOError:sys.exit(0)
   c=json.loads(Path(a.credential).read_text());db=pymysql.connect(unix_socket='/run/mysqld/mysqld.sock',user=c['user'],password=c['password'],database=c.get('database','fls'),autocommit=True,charset='utf8mb4',cursorclass=pymysql.cursors.DictCursor);db.cursor().execute("SET time_zone='+00:00',max_statement_time=30")
-  w=Worker(db,Path(a.key).read_bytes(),root,'/srv/fortigate/archive/packages','/opt/fls-tsa','/var/www/fls/deploy/tsa')
+  w=Worker(db,Path(a.key).read_bytes(),root,'/srv/fls-server/archive/packages','/opt/fls-tsa','/var/www/fls/deploy/tsa')
   try:w.run()
   except Exception:w.heartbeat('error','worker_failed');print('FLS timestamp worker failed; no credentials logged.',file=sys.stderr);sys.exit(1)
   finally:db.close()

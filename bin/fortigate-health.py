@@ -88,7 +88,7 @@ def main():
         "storage": storage,
         "collector": command(["/usr/bin/systemctl", "is-active", "fortigate-collector.service"]),
         "ntp_synchronized": command(["/usr/bin/timedatectl", "show", "-p", "NTPSynchronized", "--value"]),
-        "volumes": command(["/usr/bin/findmnt", "--json", "--target", storage.get("depot_path", "/srv/fortigate"), "-o", "SOURCE,TARGET,FSTYPE,UUID,OPTIONS"], True),
+        "volumes": command(["/usr/bin/findmnt", "--json", "--target", storage.get("depot_path", "/srv/fls-server"), "-o", "SOURCE,TARGET,FSTYPE,UUID,OPTIONS"], True),
         "disks": [],
     }
     try:
@@ -102,7 +102,7 @@ def main():
             status["disks"].append(smart_summary(role, disk, report))
         except (OSError, ValueError, subprocess.SubprocessError):
             status["disks"].append(smart_summary(role, disk, {'exit_code': None, 'data': None}))
-    usage = shutil.disk_usage(storage.get("depot_path", "/srv/fortigate"))
+    usage = shutil.disk_usage(storage.get("depot_path", "/srv/fls-server"))
     status["disk_space"] = {"total": usage.total, "used": usage.used, "free": usage.free}
     if storage["mode"] == "hybrid":
         usage = shutil.disk_usage("/")
@@ -112,7 +112,7 @@ def main():
     status['database_capacity'] = database_capacity()
     status["log_ingestion"] = {}
     try:
-        root = Path("/srv/fortigate")
+        root = Path("/srv/fls-server")
         detail = status["log_ingestion"]
         qi = root / "queue/fg-receive.qi"
         if qi.exists():
@@ -156,7 +156,7 @@ def main():
     except (OSError, ValueError, TypeError) as error:
         status["log_ingestion"]["read_error"] = str(error)
 
-    directory = Path("/srv/fortigate/metrics")
+    directory = Path("/srv/fls-server/metrics")
     descriptor, name = tempfile.mkstemp(prefix=".health-", dir=directory)
     try:
         with os.fdopen(descriptor, "w") as output:

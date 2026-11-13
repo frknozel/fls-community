@@ -2,7 +2,7 @@
 Description=FLS bounded historical raw log integrity verification
 After=mariadb.service
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/raw /srv/fortigate/archive
+RequiresMountsFor=/srv/fls-server/raw /srv/fls-server/archive
 [Service]
 Type=oneshot
 User=fls-scrub
@@ -29,5 +29,5 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX
-ReadOnlyPaths=/srv/fortigate/raw /srv/fortigate/archive/manifests
+ReadOnlyPaths=/srv/fls-server/raw /srv/fls-server/archive/manifests
 ReadWritePaths=/var/lib/fls-integrity-scrub

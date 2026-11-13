@@ -17,5 +17,5 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-InaccessiblePaths=/srv/fortigate/raw /srv/fortigate/archive /etc/fls/private
+InaccessiblePaths=/srv/fls-server/raw /srv/fls-server/archive /etc/fls/private
 RestrictAddressFamilies=AF_UNIX

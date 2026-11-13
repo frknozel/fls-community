@@ -13,7 +13,7 @@ import time
 
 DEVICE='FGT0000000000000'
 VDOM='root'
-ROOT=Path('/srv/fortigate/metrics/fortigate')
+ROOT=Path('/srv/fls-server/metrics/fortigate')
 COMPONENTS=('policies','profile_groups','profiles_virus','profiles_webfilter','profiles_app-ctrl','profiles_dns','profiles_ips','profiles_ssl','url_filters')
 MISSING=object()
 

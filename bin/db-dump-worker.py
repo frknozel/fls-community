@@ -37,7 +37,7 @@ def module(name, filename):
 backup = module('fls_configuration_backup', 'system-backup.py')
 recovery = module('fls_recovery_transport', 'system-backup-worker.py')
 STATE = Path('/var/lib/fls-db-dump')
-DIRECTORY = Path('/srv/fortigate/db-dumps')
+DIRECTORY = Path('/srv/fls-server/db-dumps')
 CREDENTIAL = Path('/etc/fls/db-dump.json')
 ZONE = ZoneInfo('Europe/Istanbul')
 NAME = re.compile(r'fls-db-([a-f0-9]{12})-(\d{4}-\d{2}-\d{2})'

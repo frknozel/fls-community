@@ -8,8 +8,8 @@ from cryptography.hazmat.primitives import serialization
 import cold_format
 
 UTC=dt.timezone.utc
-ROOT=Path('/srv/fortigate/archive/detailed')
-RAW=Path('/srv/fortigate/raw')
+ROOT=Path('/srv/fls-server/archive/detailed')
+RAW=Path('/srv/fls-server/raw')
 SOURCE_TABLES=('source_files','events','event_notes','av_event_groups','security_event_groups','traffic_event_groups','traffic_groups','mail_search_events','archive_event_index','archive_dimensions')
 MAX_SOURCE_BYTES=256*1024*1024
 MAX_COMPRESSED_BYTES=256*1024*1024

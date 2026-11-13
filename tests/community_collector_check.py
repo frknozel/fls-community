@@ -88,7 +88,7 @@ class CheckedWriteCollector(unittest.TestCase):
         senders.write_text(json.dumps({'version':1,'nomatch':'deny','type':'string',
                                      'table':[{'index':'127.0.0.1','value':'allow'}]}))
         source = (ROOT / 'deploy/fortigate-rsyslog.conf').read_text()
-        source = source.replace('/srv/fortigate', str(self.base))
+        source = source.replace('/srv/fls-server', str(self.base))
         source = source.replace('/etc/fortigate/fls-senders.json', str(senders))
         source, changes = re.subn(r'Address="[^"\n]+" Port="5514"',
                                  'Address="127.0.0.1" Port="' + str(self.port) + '"', source)

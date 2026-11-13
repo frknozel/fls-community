@@ -264,7 +264,8 @@ def inspect_target():
         if result['architecture'] != 'x86_64': reasons.append('amd64_required')
         usage = os.statvfs('/'); result['free_bytes'] = usage.f_bavail * usage.f_frsize
         if result['free_bytes'] < MIN_FREE: reasons.append('insufficient_free_space')
-        for path in [Path('/etc/fls'), Path('/var/www/fls'), Path('/srv/fortigate')]:
+        for path in [Path('/etc/fls'), Path('/var/www/fls'), Path('/srv/fls-server'),
+                     Path('/srv/fortigate')]:
             if path.exists() or path.is_symlink(): reasons.append('existing_fls_installation'); break
         if any(path.name != 'fls-recovery' for path in Path('/var/lib').glob('fls*')):
             reasons.append('existing_fls_state')
@@ -626,9 +627,9 @@ class _Engine:
 
     def database(self, payload, backup):
         self.stop(['mariadb.service'])
-        for path, mode in [('/srv/fortigate', 0o755), ('/srv/fortigate/database', 0o711)]:
+        for path, mode in [('/srv/fls-server', 0o755), ('/srv/fls-server/database', 0o711)]:
             directory = Path(path); directory.mkdir(parents=True, exist_ok=True); directory.chmod(mode)
-        datadir = Path('/srv/fortigate/database/mysql'); original = Path('/var/lib/mysql')
+        datadir = Path('/srv/fls-server/database/mysql'); original = Path('/var/lib/mysql')
         require(not datadir.exists() and not datadir.is_symlink(), 'existing_database_directory', self.phase)
         if original.exists(): shutil.move(original, datadir)
         else:
@@ -682,10 +683,10 @@ class _Engine:
             ('metrics', 'syslog', 'adm', 0o750), ('archive', 'fls-integrity', 'adm', 0o750),
             ('archive/manifests', 'fls-integrity', 'fls-integrity', 0o750), ('backups', 'root', 'root', 0o700), ('db-dumps', 'root', 'root', 0o700)]
         for name, user, group, mode in directories:
-            path = Path('/srv/fortigate') / name; path.mkdir(mode=mode, parents=True, exist_ok=True)
+            path = Path('/srv/fls-server') / name; path.mkdir(mode=mode, parents=True, exist_ok=True)
             shutil.chown(path, user=user, group=group); path.chmod(mode)
         for name in ['raw', 'metrics', 'archive', 'archive/manifests']:
-            self.run(['setfacl', '-m', 'u:fls-web:r-x', '/srv/fortigate/' + name])
+            self.run(['setfacl', '-m', 'u:fls-web:r-x', '/srv/fls-server/' + name])
         for name in ['/var/lib/fls-maintenance', '/var/lib/fls-power']:
             path = Path(name); path.mkdir(mode=0o700, exist_ok=True); path.chmod(0o700)
         self.write('/var/lib/fls-maintenance/paused', b'', 0o600)

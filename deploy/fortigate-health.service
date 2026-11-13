@@ -1,6 +1,6 @@
 [Unit]
 Description=FortiGate collector local health snapshot
-RequiresMountsFor=/srv/fortigate
+RequiresMountsFor=/srv/fls-server
 After=fortigate-collector.service
 
 [Service]
@@ -12,4 +12,4 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/fortigate/metrics /run/lock/lvm /run/lvm
+ReadWritePaths=/srv/fls-server/metrics /run/lock/lvm /run/lvm

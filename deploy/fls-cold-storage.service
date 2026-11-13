@@ -2,7 +2,7 @@
 Description=FLS verified copy of closed detailed logs and isolated restore validation
 After=mariadb.service
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/raw /srv/fortigate/archive/detailed
+RequiresMountsFor=/srv/fls-server/raw /srv/fls-server/archive/detailed
 
 [Service]
 Type=oneshot
@@ -33,7 +33,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX
-ReadOnlyPaths=/srv/fortigate/raw /srv/fortigate/archive/manifests /srv/fortigate/archive/packages
-ReadWritePaths=/srv/fortigate/archive/detailed /run/fls-cold-storage
-InaccessiblePaths=/etc/fls /srv/fortigate/queue /srv/fortigate/backups /var/log -/var/lib/fls -/var/cache/fls -/srv/fortigate/database /srv/fortigate/metrics
+ReadOnlyPaths=/srv/fls-server/raw /srv/fls-server/archive/manifests /srv/fls-server/archive/packages
+ReadWritePaths=/srv/fls-server/archive/detailed /run/fls-cold-storage
+InaccessiblePaths=/etc/fls /srv/fls-server/queue /srv/fls-server/backups /var/log -/var/lib/fls -/var/cache/fls -/srv/fls-server/database /srv/fls-server/metrics
 

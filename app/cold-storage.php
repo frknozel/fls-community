@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/management.php';
 require_once __DIR__.'/retention.php';
-const FLS_COLD_ROOT='/srv/fortigate/archive/detailed';
+const FLS_COLD_ROOT='/srv/fls-server/archive/detailed';
 const FLS_COLD_PUBLIC='/etc/fls/cold-public-key.pem';
 const FLS_COLD_MAX_PACKAGE=268435456;
 function cold_storage_admin(): void {

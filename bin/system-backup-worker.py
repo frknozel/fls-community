@@ -24,7 +24,7 @@ from fls_backup_encryption import EncryptionError, ensure_companion, load_config
 
 STATE = Path('/var/lib/fls-backup-worker')
 PUBLISHED = Path('/var/lib/fls-recovery-download')
-BACKUPS = Path('/srv/fortigate/backups')
+BACKUPS = Path('/srv/fls-server/backups')
 CREDENTIAL = Path('/etc/fls/system-backup.json')
 FILENAME = re.compile(r'fls-system-\d{8}-\d{6}Z\.tar\.gz\Z')
 SHA256 = re.compile(r'[a-f0-9]{64}\Z')

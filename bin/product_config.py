@@ -21,7 +21,7 @@ def validate(raw):
     network=ipaddress.ip_network(d.get('management_network',''),strict=True)
     if network.version!=4 or network.prefixlen<8 or ipaddress.ip_address(d['bind_ip']) not in network:raise ValueError('management_network')
     d['management_network']=str(network)
-    if d.get('data_path')!='/srv/fortigate':raise ValueError('data_path')
+    if d.get('data_path')!='/srv/fls-server':raise ValueError('data_path')
     label=d.get('storage_label','')
     if not isinstance(label,str) or not 1<=len(label)<=80 or any(ord(c)<32 or ord(c)==127 for c in label):raise ValueError('storage_label')
     return d

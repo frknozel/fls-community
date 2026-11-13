@@ -78,7 +78,7 @@ function operations_evaluate(array $facts,DateTimeImmutable $now): array {
     return ['schema'=>1,'checked_at'=>$now->format('c'),'state'=>$alerts?($alerts[0]['level']==='critical'?'critical':'warning'):'healthy','alerts'=>$alerts,'checks'=>$checks,'capacity'=>$fresh?$capacity:null,'thresholds'=>['disk_warning_percent'=>85,'disk_critical_percent'=>95,'minimum_warning_free_gib'=>10,'minimum_critical_free_gib'=>5,'daily_grace_minutes'=>30,'system_backup_max_age_days'=>7,'mirror_max_age_hours'=>3]];
 }
 
-function operations_capacity_history(string $directory='/srv/fortigate/metrics/telemetry/capacity',?DateTimeImmutable $now=null): array {
+function operations_capacity_history(string $directory='/srv/fls-server/metrics/telemetry/capacity',?DateTimeImmutable $now=null): array {
     $now??=new DateTimeImmutable('now',new DateTimeZone('UTC'));$days=[];
     // Fixed day names and bounds; never scan arbitrary files or event payloads.
     for($offset=30;$offset>=0;$offset--){
@@ -110,7 +110,7 @@ function operations_capacity_history(string $directory='/srv/fortigate/metrics/t
 
 function operations_snapshot(): array {
     system_backups_admin('GET');$now=new DateTimeImmutable('now',new DateTimeZone('UTC'));
-    $latest=json_decode(@file_get_contents('/srv/fortigate/metrics/telemetry/latest.json')?:'null',true);
+    $latest=json_decode(@file_get_contents('/srv/fls-server/metrics/telemetry/latest.json')?:'null',true);
     $facts=['capacity'=>$latest['capacity']??null,'daily'=>system_backups_db_dump(),
         'full_backup'=>query("SELECT created_at FROM system_backups WHERE status='ready' ORDER BY id DESC LIMIT 1")[0]??null,
         'system_job'=>query('SELECT status,requested_at,started_at FROM system_backup_jobs ORDER BY id DESC LIMIT 1')[0]??null];

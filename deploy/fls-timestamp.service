@@ -2,7 +2,7 @@
 Description=FLS provider time stamps and independently verified timestamp evidence
 After=mariadb.service network-online.target
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/archive
+RequiresMountsFor=/srv/fls-server/archive
 [Service]
 Type=oneshot
 User=fls-tsa
@@ -21,6 +21,6 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/srv/fortigate/archive/packages /opt/fls-tsa
-ReadWritePaths=/srv/fortigate/archive/timestamps
+ReadOnlyPaths=/srv/fls-server/archive/packages /opt/fls-tsa
+ReadWritePaths=/srv/fls-server/archive/timestamps
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

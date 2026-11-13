@@ -2,7 +2,7 @@
 Description=FLS authenticated detailed-snapshot query broker
 After=mariadb.service fls-cold-query.socket
 Requires=mariadb.service fls-cold-query.socket
-RequiresMountsFor=/srv/fortigate/archive/detailed /var/cache/fls-cold-query
+RequiresMountsFor=/srv/fls-server/archive/detailed /var/cache/fls-cold-query
 
 [Service]
 Type=simple
@@ -36,9 +36,9 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX
-ReadOnlyPaths=/srv/fortigate/archive/detailed /tmp /var/tmp
+ReadOnlyPaths=/srv/fls-server/archive/detailed /tmp /var/tmp
 ReadWritePaths=/var/cache/fls-cold-query
-InaccessiblePaths=/etc/fls /srv/fortigate/raw /srv/fortigate/archive/manifests /srv/fortigate/archive/packages /srv/fortigate/database /srv/fortigate/queue /srv/fortigate/backups /var/log -/var/lib/fls
+InaccessiblePaths=/etc/fls /srv/fls-server/raw /srv/fls-server/archive/manifests /srv/fls-server/archive/packages /srv/fls-server/database /srv/fls-server/queue /srv/fls-server/backups /var/log -/var/lib/fls
 
 [Install]
 WantedBy=multi-user.target

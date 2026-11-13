@@ -49,6 +49,18 @@ class RuntimeFixtures(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.work = self.root / 'work'; self.work.mkdir(mode=0o700)
 
+    def test_backup_strips_canonical_fls_mount_units_from_recovery_payload(self):
+        # Restore must not reactivate another machine's data-disk mounts. The
+        # project name's hyphen needs a literal systemd escape in each filename.
+        expected = {
+            r'srv-fls\x2dserver-raw.mount', r'srv-fls\x2dserver-archive.mount',
+            r'srv-fls\x2dserver-queue.mount', r'srv-fls\x2dserver-metrics.mount',
+            r'srv-fls\x2dserver-backups.mount', r'srv-fls\x2dserver-db\x2ddumps.mount',
+            r'var-lib-fls\x2drecovery\x2ddownload.mount', r'srv-fls\x2dmirror.mount',
+        }
+        self.assertEqual(set(backup.HDD_BIND_UNITS), expected)
+        self.assertEqual(backup.HDD_DEPOT_UNIT, r'srv-fls\x2dstorage.mount')
+
     @contextlib.contextmanager
     def disk(self, identity='serial'):
         udev = self.root / 'udev'; udev.mkdir()
@@ -314,7 +326,7 @@ class RuntimeFixtures(unittest.TestCase):
             with self.assertRaises(worker.DumpError): worker.assert_storage()
         for name in ['fls-db-dump.service', 'fls-db-dump-upload.service']:
             text = (TREE / 'deploy' / name).read_text()
-            self.assertIn('RequiresMountsFor=/srv/fortigate/db-dumps', text)
+            self.assertIn('RequiresMountsFor=/srv/fls-server/db-dumps', text)
             self.assertNotIn('/srv/fls-storage/DB-Dump', text)
 
 

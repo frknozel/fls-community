@@ -2,7 +2,7 @@
 Description=FLS daily configuration dump verified FTPS upload
 After=mariadb.service network-online.target
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/db-dumps
+RequiresMountsFor=/srv/fls-server/db-dumps
 
 [Service]
 Type=oneshot
@@ -25,4 +25,4 @@ RestrictSUIDSGID=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 ReadWritePaths=/var/lib/fls-db-dump
-ReadOnlyPaths=/srv/fortigate/db-dumps
+ReadOnlyPaths=/srv/fls-server/db-dumps

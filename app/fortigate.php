@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const FG_CACHE_ROOT='/srv/fortigate/metrics/fortigate';
+const FG_CACHE_ROOT='/srv/fls-server/metrics/fortigate';
 const FG_SERIAL='FGT0000000000000';
 require_once __DIR__.'/connections.php';
 const FG_PROFILE_KINDS=['virus','webfilter','app-ctrl','dns','ips','ssl'];

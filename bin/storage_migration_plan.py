@@ -27,12 +27,12 @@ DISK_FIELDS = {*IDENTITY_FIELDS, 'model', 'read_only', 'removable', 'mounted',
                'swap', 'holders', 'open_handles', 'usage_known',
                'partition_table', 'partitions'}
 SCOPE = [
-    {'source': '/srv/fortigate/raw', 'target': '/srv/fls-storage/FLS-Logs/raw'},
-    {'source': '/srv/fortigate/archive', 'target': '/srv/fls-storage/FLS-Logs/archive'},
-    {'source': '/srv/fortigate/metrics', 'target': '/srv/fls-storage/FLS-Logs/metrics'},
-    {'source': '/srv/fortigate/backups', 'target': '/srv/fls-storage/FLS-Backups/staging'},
+    {'source': '/srv/fls-server/raw', 'target': '/srv/fls-storage/FLS-Logs/raw'},
+    {'source': '/srv/fls-server/archive', 'target': '/srv/fls-storage/FLS-Logs/archive'},
+    {'source': '/srv/fls-server/metrics', 'target': '/srv/fls-storage/FLS-Logs/metrics'},
+    {'source': '/srv/fls-server/backups', 'target': '/srv/fls-storage/FLS-Backups/staging'},
     {'source': '/var/lib/fls-recovery-download', 'target': '/srv/fls-storage/FLS-Backups/published'},
-    {'source': '/srv/fortigate/db-dumps', 'target': '/srv/fls-storage/DB-Dump'},
+    {'source': '/srv/fls-server/db-dumps', 'target': '/srv/fls-storage/DB-Dump'},
 ]
 
 
@@ -232,7 +232,7 @@ def _evaluate(request, result):
             and WWN.fullmatch(state['device_wwn']), 'storage_identity_invalid')
     action = 'add-primary' if state['mode'] == 'system-root' else 'add-mirror'
     result.update(action=action, mode=state['mode'], planned_steps=planned_steps(action),
-        excluded_paths=['/srv/fortigate/database/mysql', '/srv/fortigate/queue'],
+        excluded_paths=['/srv/fls-server/database/mysql', '/srv/fls-server/queue'],
         required_confirmation={'text': 'TAMAM', 'collected': False,
             'effect': 'selected_disk_entire_contents_erased'},
         migration_scope=[dict(item) for item in SCOPE] if action == 'add-primary' else [

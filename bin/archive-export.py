@@ -164,7 +164,7 @@ class Worker:
 import ssl
 ssl_error=ssl.SSLError
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('--credential',default='/etc/fls/archive-export.json');p.add_argument('--raw',default='/srv/fortigate/raw');p.add_argument('--packages',default='/srv/fortigate/archive/packages');p.add_argument('--public-key',default='/var/www/fls/public/archive-public-key.pem');p.add_argument('--key',default='/etc/fls/credential-key');p.add_argument('--lock',default='/srv/fortigate/archive/packages/.worker.lock');p.add_argument('--package-limit',type=int,default=3);p.add_argument('--delivery-limit',type=int,default=2);a=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--credential',default='/etc/fls/archive-export.json');p.add_argument('--raw',default='/srv/fls-server/raw');p.add_argument('--packages',default='/srv/fls-server/archive/packages');p.add_argument('--public-key',default='/var/www/fls/public/archive-public-key.pem');p.add_argument('--key',default='/etc/fls/credential-key');p.add_argument('--lock',default='/srv/fls-server/archive/packages/.worker.lock');p.add_argument('--package-limit',type=int,default=3);p.add_argument('--delivery-limit',type=int,default=2);a=p.parse_args()
  with open(a.lock,'w') as lock:
   try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   except BlockingIOError:sys.exit(0)

@@ -102,7 +102,7 @@ function archive_package_download(): never {
  $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$id)throw new ManagementError('Paket kimliği geçersiz.');
  $r=query("SELECT p.* FROM archive_packages p JOIN archive_manifests m ON m.id=p.manifest_id WHERE p.manifest_id=? AND p.status='ready' AND m.status='verified'",[$id])[0]??null;
  if(!$r||!preg_match('/^fls-[0-9-]{13}-[a-f0-9]{16}\.tar\.gz$/D',$r['filename']))throw new ManagementError('Doğrulanmış paket hazır değil.',404);
- $path='/srv/fortigate/archive/packages/'.$r['filename'];$s=@lstat($path);
+ $path='/srv/fls-server/archive/packages/'.$r['filename'];$s=@lstat($path);
  if(!$s||($s['mode']&0170000)!==0100000||$s['size']!==(int)$r['bytes'])throw new ManagementError('Paket kullanılamıyor.',409);
  $f=@fopen($path,'rb');if(!$f)throw new ManagementError('Paket okunamıyor.',503);
  // The directory is worker-owned; web users have no write access.

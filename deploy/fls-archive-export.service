@@ -2,7 +2,7 @@
 Description=FLS verified signed hourly archive packaging and remote backup
 After=mariadb.service network-online.target
 Requires=mariadb.service
-RequiresMountsFor=/srv/fortigate/raw /srv/fortigate/archive
+RequiresMountsFor=/srv/fls-server/raw /srv/fls-server/archive
 [Service]
 Type=oneshot
 User=fls-export
@@ -22,8 +22,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/srv/fortigate/raw /srv/fortigate/archive/manifests
-ReadWritePaths=/srv/fortigate/archive/packages
+ReadOnlyPaths=/srv/fls-server/raw /srv/fls-server/archive/manifests
+ReadWritePaths=/srv/fls-server/archive/packages
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 [Install]
 WantedBy=multi-user.target

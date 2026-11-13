@@ -23,12 +23,12 @@ from fls_storage import filesystem_identity, storage_state, trusted_read, valida
 STATE = Path('/var/lib/fls-disks')
 CONFIG = Path('/etc/fls/storage.json')
 SCOPE = (
-    ('/srv/fortigate/raw', 'FLS-Logs/raw'),
-    ('/srv/fortigate/archive', 'FLS-Logs/archive'),
-    ('/srv/fortigate/metrics', 'FLS-Logs/metrics'),
-    ('/srv/fortigate/backups', 'FLS-Backups/staging'),
+    ('/srv/fls-server/raw', 'FLS-Logs/raw'),
+    ('/srv/fls-server/archive', 'FLS-Logs/archive'),
+    ('/srv/fls-server/metrics', 'FLS-Logs/metrics'),
+    ('/srv/fls-server/backups', 'FLS-Backups/staging'),
     ('/var/lib/fls-recovery-download', 'FLS-Backups/published'),
-    ('/srv/fortigate/db-dumps', 'DB-Dump'),
+    ('/srv/fls-server/db-dumps', 'DB-Dump'),
 )
 UNIT = re.compile(r'(?:fls|fortigate)-[A-Za-z0-9@_.:-]+\.(?:service|timer)\Z')
 KEEP = {'fls-disk-management.service', 'fls-disk-management.timer', 'fls-rehearsal-web.service'}
@@ -244,7 +244,7 @@ class LinuxMigration:
         require(self.source['mode'] == 'system-root', 'primary_migration_requires_system_root')
         storage_state()
         root = Path('/').stat().st_dev
-        for name in ('/srv/fortigate/database/mysql', '/srv/fortigate/queue'):
+        for name in ('/srv/fls-server/database/mysql', '/srv/fls-server/queue'):
             require(Path(name).lstat().st_dev == root and Path(name).resolve() == Path(name),
                     'migration_system_data_redirected')
         used = 0
@@ -495,7 +495,7 @@ class LinuxMigration:
         require(state['mode'] == 'hybrid' and state['queue_location'] == 'system', 'migration_storage_validation_failed')
         root = Path('/').stat().st_dev
         require(all(Path(name).stat().st_dev == root for name in
-                    ('/srv/fortigate/database/mysql', '/srv/fortigate/queue')), 'migration_system_data_moved')
+                    ('/srv/fls-server/database/mysql', '/srv/fls-server/queue')), 'migration_system_data_moved')
         # Run the same guard in an actual systemd namespace, with block devices
         # hidden as they are for the collector and other sandboxed services.
         self.command(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect',

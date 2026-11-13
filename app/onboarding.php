@@ -36,13 +36,13 @@ function onboarding_write(string $route,array $data): array {
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }
 function onboarding_collector(): array {
-    $path='/srv/fortigate/metrics/fortigate-onboarding.json';
+    $path='/srv/fls-server/metrics/fortigate-onboarding.json';
     $text=@file_get_contents($path,false,null,0,65537);$s=is_string($text)&&strlen($text)<65536?json_decode($text,true):null;
     if(!is_array($s)||($s['schema']??null)!==1)return ['fresh'=>false,'error'=>'worker_unavailable'];
     $age=time()-(strtotime(($s['updated_at']??'').' UTC')?:0);$s['fresh']=$age>=-30&&$age<=90;return $s;
 }
 function onboarding_components(array $device,string $mode,array $names,int $ttl,int $floor=0): array {
-    $base='/srv/fortigate/metrics/fortigate';if(!(int)$device['legacy_cache'])$base.='/devices/'.(int)$device['id'];
+    $base='/srv/fls-server/metrics/fortigate';if(!(int)$device['legacy_cache'])$base.='/devices/'.(int)$device['id'];
     $text=@file_get_contents($base.'/'.$mode.'.json',false,null,0,16*1024*1024+1);$s=is_string($text)&&strlen($text)<16*1024*1024?json_decode($text,true):null;$valid=is_array($s)&&($s['schema']??null)===1&&($s['device']['serial']??null)===$device['serial']&&($s['device']['vdom']??null)===$device['vdom'];
     $rows=[];
     foreach($names as $key=>$label){
@@ -87,7 +87,7 @@ function onboarding_snapshot(array $input): array {
     $live=onboarding_components($d,'live',['resources'=>'CPU / RAM','ipsec'=>'IPsec VPN','ssl_vpn'=>'SSL VPN','sdwan_health'=>'SD-WAN sağlık','sdwan_members'=>'SD-WAN üyeleri'],120,$floor);
     $config=onboarding_components($d,'config',['policies'=>'Firewall policy','profile_groups'=>'Profil grupları','profiles_virus'=>'Antivirüs','profiles_webfilter'=>'Web filtresi','profiles_app-ctrl'=>'Uygulama kontrolü','profiles_dns'=>'DNS filtresi','profiles_ips'=>'IPS','profiles_ssl'=>'SSL / SSH'],660,$floor);
     $inventory=onboarding_components($d,'live',['inventory'=>'Cihaz envanteri','ha'=>'HA'],120,$floor);
-    $base='/srv/fortigate/metrics/fortigate';if(!(int)$d['legacy_cache'])$base.='/devices/'.(int)$d['id'];$raw=@file_get_contents($base.'/live.json',false,null,0,16*1024*1024+1);$cache=is_string($raw)&&strlen($raw)<16*1024*1024?json_decode($raw,true):null;
+    $base='/srv/fls-server/metrics/fortigate';if(!(int)$d['legacy_cache'])$base.='/devices/'.(int)$d['id'];$raw=@file_get_contents($base.'/live.json',false,null,0,16*1024*1024+1);$cache=is_string($raw)&&strlen($raw)<16*1024*1024?json_decode($raw,true):null;
     $inventoryData=is_array($cache)&&($cache['device']['serial']??null)===$d['serial']&&($cache['device']['vdom']??null)===$d['vdom']?($cache['components']['inventory']['data']??null):null;
     $haData=is_array($cache)&&($cache['device']['serial']??null)===$d['serial']&&($cache['device']['vdom']??null)===$d['vdom']?($cache['components']['ha']['data']??null):null;
     $admitted=$s&&($collector['fresh']??false)&&empty($collector['error'])&&in_array($s['peer_ip'],$collector['allowed_ips']??[],true);

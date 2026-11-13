@@ -6,8 +6,8 @@ import pymysql
 
 RSYSLOG='/opt/fortigate/rsyslog-8.2312.0-fg1/sbin/rsyslogd'
 ALLOW=Path('/etc/fortigate/fls-senders.json')
-PUBLIC=Path('/srv/fortigate/metrics/fortigate-onboarding.json')
-RAW=Path('/srv/fortigate/raw')
+PUBLIC=Path('/srv/fls-server/metrics/fortigate-onboarding.json')
+RAW=Path('/srv/fls-server/raw')
 
 def ipv4(value):
     ip=ipaddress.ip_address(value)

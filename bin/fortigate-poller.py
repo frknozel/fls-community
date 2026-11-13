@@ -21,7 +21,7 @@ compat_spec.loader.exec_module(compatibility)
 spec = importlib.util.spec_from_file_location('fls_fg_transport', Path(__file__).with_name('fortigate-api.py'))
 transport = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(transport)
-ROOT = Path('/srv/fortigate/metrics/fortigate')
+ROOT = Path('/srv/fls-server/metrics/fortigate')
 MAX_BODY = 4 * 1024 * 1024
 PROFILE_FIELDS = {'virus': 'av-profile', 'webfilter': 'webfilter-profile', 'app-ctrl': 'application-list',
                   'dns': 'dnsfilter-profile', 'ips': 'ips-sensor', 'ssl': 'ssl-ssh-profile'}

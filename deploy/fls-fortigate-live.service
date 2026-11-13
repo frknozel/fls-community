@@ -1,6 +1,6 @@
 [Unit]
 Description=FLS read-only FortiGate live metrics
-RequiresMountsFor=/srv/fortigate
+RequiresMountsFor=/srv/fls-server
 After=network-online.target
 
 [Service]
@@ -22,4 +22,4 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-ReadWritePaths=/srv/fortigate/metrics/fortigate
+ReadWritePaths=/srv/fls-server/metrics/fortigate

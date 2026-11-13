@@ -4,7 +4,7 @@ import argparse, collections, datetime as dt, hashlib, json, logging, os, re, ti
 from pathlib import Path
 import pymysql
 
-ROOT=Path('/srv/fortigate/raw')
+ROOT=Path('/srv/fls-server/raw')
 UTC=dt.timezone.utc
 PAT=re.compile(r'(?:^|\s)([A-Za-z0-9_.-]+)=(?:"((?:[^"\\]|\\.)*)"|([^\s]*))')
 ESC=re.compile(r'\\(["\\])')

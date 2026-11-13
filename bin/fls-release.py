@@ -141,7 +141,7 @@ def source_inventory(root,require_root=True):
 
 def build(args):
     repo=Path(args.repo).resolve(strict=True);key=Path(args.private_key).resolve(strict=True)
-    if key.is_relative_to(repo) or key.is_relative_to(Path('/etc/fls')) or key.is_relative_to(Path('/srv/fortigate')):raise ReleaseError('publisher_key_location')
+    if key.is_relative_to(repo) or key.is_relative_to(Path('/etc/fls')) or key.is_relative_to(Path('/srv/fls-server')):raise ReleaseError('publisher_key_location')
     status,_,_=source_inventory(repo,require_root=False)
     if not status['clean']:raise ReleaseError('source_git_dirty')
     archive=git(repo,'archive','--format=tar',status['source_commit'],limit=MAX_SOURCE)
@@ -231,7 +231,7 @@ def main(argv=None):
     for operation in ['verify','preflight']:
         p=sub.add_parser(operation);p.add_argument('--package',required=True);p.add_argument('--public-key',required=True);p.add_argument('--report')
         if operation=='preflight':
-            p.add_argument('--inventory');p.add_argument('--installed-root',default='/var/www/fls');p.add_argument('--installed-state',default='/etc/fls/release-state.json');p.add_argument('--backup-directory',default='/srv/fortigate/backups');p.add_argument('--reserve-gib',type=int,default=4)
+            p.add_argument('--inventory');p.add_argument('--installed-root',default='/var/www/fls');p.add_argument('--installed-state',default='/etc/fls/release-state.json');p.add_argument('--backup-directory',default='/srv/fls-server/backups');p.add_argument('--reserve-gib',type=int,default=4)
     args=parser.parse_args(argv)
     try:
         if args.operation=='build':result=build(args);status=0

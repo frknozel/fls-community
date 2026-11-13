@@ -141,6 +141,16 @@ class CollectedInventoryChecks(unittest.TestCase):
             report = plan.assess(inventory, MANIFEST, components)
         return inventory, report
 
+    def test_current_and_retired_data_roots_block_fresh_installation(self):
+        for relative in ('srv/fls-server', 'srv/fortigate'):
+            with self.subTest(path=relative):
+                self.write(relative + '/retained-data', 'existing installation\n')
+                inventory, report = self.collect()
+                self.assertIn('/' + relative, inventory['existing_paths'])
+                self.assertIn('existing_fls_installation_requires_upgrade', report['host_blockers'])
+                self.assertFalse(report['ready_for_apply'])
+                shutil.rmtree(self.host / relative)
+
     def test_plain_ext4_vm_with_serial_is_admitted_from_actual_metadata(self):
         inventory, report = self.collect()
         self.assertEqual(inventory['probe_errors'], [])

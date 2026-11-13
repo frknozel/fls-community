@@ -40,7 +40,7 @@ def main():
     helper=Path('/usr/lib/fls/fls-archive-hash')
     st=helper.lstat()
     if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_mode&0o022 or not os.access(helper,os.X_OK):raise ValueError('trusted_hash_helper_required')
-    for name in ['/etc/fls','/var/lib','/srv/fortigate','/srv/fortigate/raw','/srv/fortigate/archive','/srv/fortigate/archive/manifests']:
+    for name in ['/etc/fls','/var/lib','/srv/fls-server','/srv/fls-server/raw','/srv/fls-server/archive','/srv/fls-server/archive/manifests']:
         p=Path(name);s=p.lstat()
         if not stat.S_ISDIR(s.st_mode) or s.st_mode&0o002:raise ValueError('unsafe_parent_directory')
     try:account=pwd.getpwnam('fls-scrub')
@@ -68,9 +68,9 @@ def main():
     os.chown(state,account.pw_uid,account.pw_gid);os.chmod(state,0o700)
     # Pin every target FD: a path replacement cannot grant access to an outside
     # symlink target. The raw collector's default ACL covers future hourly files.
-    acl_fd('/srv/fortigate','--x',directory=True)
-    acl_fd('/srv/fortigate/archive','--x',directory=True)
-    for directory,pattern in [('/srv/fortigate/raw','*.jsonl'),('/srv/fortigate/archive/manifests','*.manifest.json')]:
+    acl_fd('/srv/fls-server','--x',directory=True)
+    acl_fd('/srv/fls-server/archive','--x',directory=True)
+    for directory,pattern in [('/srv/fls-server/raw','*.jsonl'),('/srv/fls-server/archive/manifests','*.manifest.json')]:
         acl_fd(directory,'r-x',directory=True,default=True)
         for p in Path(directory).glob(pattern):acl_fd(p,'r--')
     if subprocess.run(['runuser','-u','fls-scrub','--','test','-r','/etc/fls/private/archive-ed25519.pem']).returncode==0:raise ValueError('worker_must_not_read_signing_key')

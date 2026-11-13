@@ -46,7 +46,7 @@
  }
  function layout(){
   if(!fresh())return '<p class="disk-empty">Dizinlerin bulunduğu disk, güncel envanter doğrulandıktan sonra gösterilir.</p>';
-  if(snapshot.mode==='system-root')return '<div><h3>Sistem diski · tek disk düzeni</h3><p>Ubuntu, FLS, MariaDB, loglar ve yedekler sistem diskinde saklanır. Ayrı ana depo diski zorunlu değildir.</p><pre>/srv/fortigate/\n  raw/       Ham loglar\n  archive/   Arşivler ve damga belgeleri\n  metrics/   Sağlık ölçümleri\n  backups/   Yedek hazırlama alanı\n  db-dumps/  Günlük logsuz DB yedekleri\n/var/lib/fls-recovery-download/\n             İndirilebilir sistem yedekleri</pre><p>Geçici teslim kuyruğu: /srv/fortigate/queue · en fazla 10 GB.</p></div>';
+  if(snapshot.mode==='system-root')return '<div><h3>Sistem diski · tek disk düzeni</h3><p>Ubuntu, FLS, MariaDB, loglar ve yedekler sistem diskinde saklanır. Ayrı ana depo diski zorunlu değildir.</p><pre>/srv/fls-server/\n  raw/       Ham loglar\n  archive/   Arşivler ve damga belgeleri\n  metrics/   Sağlık ölçümleri\n  backups/   Yedek hazırlama alanı\n  db-dumps/  Günlük logsuz DB yedekleri\n/var/lib/fls-recovery-download/\n             İndirilebilir sistem yedekleri</pre><p>Geçici teslim kuyruğu: /srv/fls-server/queue · en fazla 10 GB.</p></div>';
   return '<div><h3>Sistem diski</h3><p>Ubuntu, FLS, MariaDB ve aranabilir indeks.</p><p>Geçici teslim kuyruğu: en fazla 10 GB.</p></div><div><h3>Ana depo · /srv/fls-storage</h3><pre>FLS-Logs/\n  raw/       Ham loglar\n  archive/   Arşivler ve damga belgeleri\n  metrics/   Sağlık ölçümleri\nFLS-Backups/\n  staging/   Yedek hazırlama alanı\n  published/ İndirilebilir sistem yedekleri\nDB-Dump/     Günlük logsuz DB yedekleri</pre></div>';
  }
  function render(){

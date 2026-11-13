@@ -426,7 +426,7 @@ class SystemQueueGuard(unittest.TestCase):
 
     def test_only_explicit_system_value_is_accepted(self):
         original = json.loads(self.config.read_text())
-        for value in ('depot', 'ssd', '/srv/fortigate/queue', True, None, 1):
+        for value in ('depot', 'ssd', '/srv/fls-server/queue', True, None, 1):
             self.config.write_text(json.dumps(original | {'queue_location': value}))
             with self.subTest(value=value), self.assertRaises(guard.StorageError):
                 guard.storage_state()

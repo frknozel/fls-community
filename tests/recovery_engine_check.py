@@ -130,8 +130,14 @@ class RecoveryEngineTests(unittest.TestCase):
 
     def test_target_rejects_existing_app_even_when_no_service_runs(self):
         with self.target_fixture() as root:
-            (root/'etc/fls').mkdir()
-            self.assertIn('existing_fls_installation', engine.inspect_target()['reasons'])
+            for marker in ('etc/fls', 'srv/fls-server', 'srv/fortigate'):
+                with self.subTest(marker=marker):
+                    path = root / marker
+                    path.mkdir(parents=True)
+                    report = engine.inspect_target()
+                    self.assertFalse(report['eligible'])
+                    self.assertIn('existing_fls_installation', report['reasons'])
+                    path.rmdir()
 
     def test_identity_is_process_free_and_detects_uuid_wwn_device_reboot_and_machine_changes(self):
         with self.target_fixture() as root, patch.object(engine, '_capture', side_effect=AssertionError('identity must not fork')):

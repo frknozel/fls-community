@@ -152,10 +152,10 @@ function retention_volume_probe(string $path): array {
 /** Callable seams allow separate filesystem/absence fixtures without live mounts. */
 function retention_storage_capacity(?callable $probe=null,?callable $layout=null): array {
     $probe??=retention_volume_probe(...);$layout??=retention_storage_mode(...);$mode=$layout();
-    $system=$probe('/');$logs=$probe('/srv/fortigate/raw');
+    $system=$probe('/');$logs=$probe('/srv/fls-server/raw');
     $shared=($system['available']??false)&&($logs['available']??false)?$system['device']===$logs['device']:null;
     $expected=in_array($mode,['hybrid','dedicated'],true)?$shared===false:($mode==='system-root'&&$shared===true);
-    if(!$expected){$logs=['path'=>'/srv/fortigate/raw','available'=>false,'device'=>null,'free_bytes'=>null,'total_bytes'=>null];$shared=null;}
+    if(!$expected){$logs=['path'=>'/srv/fls-server/raw','available'=>false,'device'=>null,'free_bytes'=>null,'total_bytes'=>null];$shared=null;}
     unset($system['device'],$logs['device']);
     return ['storage_mode'=>in_array($mode,['hybrid','dedicated','system-root'],true)?$mode:'unavailable','system_volume'=>$system,'log_volume'=>$logs,'volumes_shared'=>$shared,'volume'=>$logs];
 }
