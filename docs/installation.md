@@ -63,6 +63,8 @@ Cihazdaki **Etkin** seçeneği FortiGate API sorgulamasını açar ve bu nedenle
 
 ### FortiGate'e ek test hedefi hazırlığı
 
+Komutları uygulamak için [FortiGate bağlantı rehberini](fortigate-setup.md) kullanın. Rehber, boş hedef seçimi ve TCP syslog komutlarının yanında FLS izinlerini, doğrulamayı, yalnız eklenen hedefi durdurmayı ve ayrı salt okunur API hesabını kapsar. Aşağıdaki bölüm uygulama öncesi envanterin kısa özetidir.
+
 Önce FortiOS sürümünü ve VDOM çalışma biçimini salt okunur komutla öğrenin:
 
 ```text
