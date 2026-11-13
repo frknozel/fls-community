@@ -97,7 +97,7 @@ class ReleaseBuilderFixtures(unittest.TestCase):
 
     def build(self):
         with patch.object(release.subprocess, 'run', side_effect=self.fake_sign), contextlib.redirect_stdout(io.StringIO()):
-            return release.build(self.source, self.components, self.destination, 'v0.76.0-rc.1', self.key)
+            return release.build(self.source, self.components, self.destination, 'v0.76.0-rc.2', self.key)
 
     def test_full_builder_creates_exact_three_field_inventory_and_pinned_assets(self):
         outer = self.build()
@@ -251,7 +251,7 @@ class CompleteBootstrapFixtures(unittest.TestCase):
             'dpkg': '#!/bin/sh\n[ "$1" = "--print-architecture" ] || exit 97\nprintf amd64\n',
             'mktemp': '#!/usr/bin/python3\nimport os\nfrom pathlib import Path\np=Path(os.environ["FLS_FIXTURE_WORK"]);p.mkdir(mode=0o700);print(p)\n',
             'curl': '#!/usr/bin/python3\nimport os,sys,shutil\nfrom pathlib import Path\na=sys.argv[1:];name=a[-1].rsplit("/",1)[-1]\n'
-                    'assert name in {"release.json","release.json.sig","fls-community-0.76.0-rc.1-linux-amd64.tar.gz"}\n'
+                    'assert name in {"release.json","release.json.sig","fls-community-0.76.0-rc.2-linux-amd64.tar.gz"}\n'
                     'with open(os.environ["FLS_FIXTURE_CALLS"],"a") as log:log.write(name+"\\n")\n'
                     'shutil.copyfile(Path(os.environ["FLS_FIXTURE_REMOTE"])/name,a[a.index("--output")+1])\n',
         }
@@ -262,10 +262,10 @@ class CompleteBootstrapFixtures(unittest.TestCase):
             'FLS_FIXTURE_CALLS': str(self.calls), 'FLS_FIXTURE_PROOF': str(self.proof)}
         installer = (b'import os\nfrom pathlib import Path\n'
                      b'Path(os.environ["FLS_FIXTURE_PROOF"]).write_text("fixture installer reached")\n')
-        self.package = self.remote / 'fls-community-0.76.0-rc.1-linux-amd64.tar.gz'
+        self.package = self.remote / 'fls-community-0.76.0-rc.2-linux-amd64.tar.gz'
         self.package.write_bytes(tar_bytes([('fls-community/bin/fls-install.py', installer)]))
         self.manifest = {'schema': 'fls-community-release-v1', 'version': '0.76.0',
-                         'tag': 'v0.76.0-rc.1', 'filename': self.package.name,
+                         'tag': 'v0.76.0-rc.2', 'filename': self.package.name,
                          'bytes': self.package.stat().st_size, 'sha256': release.digest(self.package)}
         self.sign()
 
@@ -274,8 +274,8 @@ class CompleteBootstrapFixtures(unittest.TestCase):
         (self.remote / 'release.json').write_bytes(payload)
         (self.remote / 'release.json.sig').write_bytes(self.key.sign(payload))
 
-    def invoke(self):
-        return subprocess.run(['/bin/bash', str(self.script), '--apply'], env=self.environment,
+    def invoke(self, *arguments):
+        return subprocess.run(['/bin/bash', str(self.script), *(arguments or ('--apply',))], env=self.environment,
                               capture_output=True, text=True, timeout=15)
 
     def downloads(self): return self.calls.read_text().splitlines() if self.calls.exists() else []
@@ -286,6 +286,39 @@ class CompleteBootstrapFixtures(unittest.TestCase):
         self.assertEqual(self.proof.read_text(), 'fixture installer reached')
         self.assertEqual(self.downloads(), ['release.json', 'release.json.sig', self.package.name])
         self.assertFalse(self.work.exists())
+
+    def check_installer(self):
+        installer = (b'import os,sys\nfrom pathlib import Path\n'
+                     b'assert sys.argv[1:] == ["--check"]\n'
+                     b'Path(os.environ["FLS_FIXTURE_PROOF"]).write_text("checked without apply")\n'
+                     b'raise SystemExit(2)\n')
+        self.package.write_bytes(tar_bytes([('fls-community/bin/fls-install.py', installer)]))
+        self.manifest.update(bytes=self.package.stat().st_size, sha256=release.digest(self.package))
+        self.sign()
+
+    def test_standalone_check_verifies_signature_and_preserves_read_only_status(self):
+        self.check_installer()
+        result = self.invoke('--check')
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(self.proof.read_text(), 'checked without apply')
+        self.assertEqual(self.downloads(), ['release.json', 'release.json.sig', self.package.name])
+        self.assertFalse(self.work.exists())
+        self.assertFalse(self.marker.exists())
+
+    def test_check_can_report_existing_host_and_repeat_without_journal(self):
+        self.marker.mkdir(); self.check_installer()
+        for attempt in range(2):
+            result = self.invoke('--check')
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertEqual(self.proof.read_text(), 'checked without apply')
+            self.assertFalse(self.work.exists())
+        self.assertEqual(len(self.downloads()), 6)
+
+    def test_conflicting_modes_reject_before_download(self):
+        result = self.invoke('--check', '--apply')
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(self.downloads(), [])
+        self.assertFalse(self.proof.exists())
 
     def test_unsigned_manifest_change_stops_before_package_download(self):
         self.manifest['sha256'] = '0' * 64

@@ -2,11 +2,11 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.1 bir test sürümüdür.** Kurulum motoru, imzalı dağıtım paketi ve ikinci diske taşıma işçisi uygulanmıştır. Ayrı, temiz Ubuntu VM üzerinde baştan sona kabul testi henüz tamamlanmamıştır. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
+**0.76.0-rc.2 bir test sürümüdür.** Kurulum motoru, imzalı dağıtım paketi ve ikinci diske taşıma işçisi uygulanmıştır. Ayrı, temiz Ubuntu VM üzerinde baştan sona kabul testi henüz tamamlanmamıştır. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 
-Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ext4 sistem bölümü** gerekir. Ubuntu kurulurken LVM ve RAID seçmeyin. VM diskine benzersiz, kalıcı bir seri numarası/WWID atayın; kimliği doğrulanamayan disklerde kurulum durur. Bir disk yeterlidir; diğer diskler kurulum sırasında silinmez.
+Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ext4 sistem bölümü** gerekir. Ubuntu kurulurken LVM ve RAID seçmeyin. VM diskine benzersiz, kalıcı bir seri numarası/WWID atayın; kimliği doğrulanamayan disklerde kurulum durur. Bir disk yeterlidir; diğer diskler kurulum sırasında silinmez. VMware ESXi için VM kapalıyken `disk.EnableUUID=TRUE` ayarını etkinleştirin; [ayrıntılar](docs/installation.md).
 
 Önce temel indirme araçlarını yükleyin, sonra sabit sürümün kurucusunu indirin:
 
@@ -14,10 +14,18 @@ Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ex
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates openssl python3
 curl --fail --show-error --location --proto '=https' \
-  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.1/install.sh \
+  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.2/install.sh \
   -o fls-install.sh
+sudo bash fls-install.sh --check
+```
+
+Ön kontrol başarılıysa kurulumu açıkça başlatın:
+
+```sh
 sudo bash fls-install.sh --apply
 ```
+
+`--check` paket veya servis kurmaz; engel varsa `blockers`, `probe_errors` ve açıklama verir. Ön kontrol engelinde `--apply` de `installation_started:false` ve `retry:fix_preflight_and_retry` döndürür; yalnız bu nedenle snapshot'a dönmek gerekmez.
 
 Kurucu paket imzasını ve dosya karmalarını doğrular; Ubuntu'nun PHP 8.3/MariaDB 10.11 paketlerini, FLS'yi, servis hesaplarını, veritabanını ve yerel HTTPS sertifikasını hazırlar. Ağ/DNS ayarlarını değiştirmez. Gerekirse `--bind-ip`, `--hostname`, `--management-network` verilebilir. Mevcut FLS veya veritabanı bulunan makine reddedilir. Tamamlandığında ilk yönetici parolasını okuyun:
 

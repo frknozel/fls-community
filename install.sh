@@ -2,14 +2,19 @@
 # FLS Community signed-release bootstrap. No disks are partitioned here.
 set -euo pipefail
 umask 077
-readonly release_tag='v0.76.0-rc.1'
+readonly release_tag='v0.76.0-rc.2'
 readonly release_version='0.76.0'
-readonly release_name='fls-community-0.76.0-rc.1-linux-amd64.tar.gz'
+readonly release_name='fls-community-0.76.0-rc.2-linux-amd64.tar.gz'
 readonly release_base="https://github.com/frknozel/fls-community/releases/download/${release_tag}"
 mode='plan'
+explicit_mode=''
 for argument in "$@"; do
     case "$argument" in
-        --apply) mode='apply' ;;
+        --apply|--plan|--check)
+            [[ -z "$explicit_mode" || "$explicit_mode" == "$argument" ]] || {
+                printf '%s\n' 'Choose only one of --plan, --check or --apply.' >&2; exit 2;
+            }
+            explicit_mode="$argument"; mode="${argument#--}" ;;
         --inventory|--inventory=*)
             printf '%s\n' 'Synthetic inventories are supported only by the local Python planner.' >&2
             exit 2 ;;
@@ -17,21 +22,23 @@ for argument in "$@"; do
 done
 if [[ "$mode" != 'apply' ]]; then
     installer_source="${BASH_SOURCE[0]:-}"
-    if [[ -z "$installer_source" || ! -f "$installer_source" ]]; then
-        printf '%s\n' 'Download the source for a read-only plan, or use --apply on a fresh Ubuntu VM.' >&2
-        exit 2
+    if [[ -n "$installer_source" && -f "$installer_source" ]]; then
+        installer_directory="$(cd -- "$(dirname -- "$installer_source")" && pwd -P)"
+        if [[ -f "$installer_directory/bin/fls-install.py" ]]; then
+            exec python3 -B "$installer_directory/bin/fls-install.py" "$@"
+        fi
     fi
-    installer_directory="$(cd -- "$(dirname -- "$installer_source")" && pwd -P)"
-    exec python3 -B "$installer_directory/bin/fls-install.py" "$@"
 fi
-# Existing installations are rejected before downloads, package changes or logs.
-[[ "$EUID" == 0 ]] || { printf '%s\n' 'Run --apply as root.' >&2; exit 2; }
-for marker in /etc/fls /var/www/fls /var/lib/fls-community-install /srv/fortigate /srv/fls-storage /var/lib/mysql/mysql; do
-    if [[ -e "$marker" || -L "$marker" ]]; then
-        printf '%s\n' 'Fresh Ubuntu required. Existing FLS/database/storage state was detected.' >&2
-        exit 2
-    fi
-done
+[[ "$EUID" == 0 ]] || { printf '%s\n' 'Run the standalone installer or checker as root.' >&2; exit 2; }
+# Apply refuses existing installations before downloads. Check/plan may inspect them.
+if [[ "$mode" == 'apply' ]]; then
+    for marker in /etc/fls /var/www/fls /var/lib/fls-community-install /srv/fortigate /srv/fls-storage /var/lib/mysql/mysql; do
+        if [[ -e "$marker" || -L "$marker" ]]; then
+            printf '%s\n' 'Fresh Ubuntu required. Existing FLS/database/storage state was detected.' >&2
+            exit 2
+        fi
+    done
+fi
 # shellcheck disable=SC1091
 source /etc/os-release
 [[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 && "$(dpkg --print-architecture)" == amd64 ]] || {

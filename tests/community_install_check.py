@@ -322,5 +322,85 @@ class FileAndCLIChecks(unittest.TestCase):
             self.assertFalse(any(folder.rglob('__pycache__')))
 
 
+
+class AdmissionDiagnosticsChecks(unittest.TestCase):
+    def invoke(self, value, argv):
+        import community_install as engine
+        artifacts = components()
+        for item in artifacts:
+            if item['required']: item.update(present=True, verified=True, status='verified')
+        output = io.StringIO()
+        with patch.object(cli, 'collect_inventory', return_value=value), \
+             patch.object(cli, 'inspect_components', return_value=artifacts), \
+             patch.object(engine, 'apply', side_effect=AssertionError('host apply must not run')) as apply, \
+             contextlib.redirect_stdout(output):
+            code = cli.main(argv)
+        return code, json.loads(output.getvalue()), apply
+
+    def test_missing_disk_identity_has_specific_prewrite_error_and_no_apply(self):
+        value = inventory()
+        value['root'].update(disk_wwn='', device_identity=None, hardware_identity_matches=False)
+        value['disks'][0]['wwn'] = ''
+        code, result, apply = self.invoke(value, ['--apply'])
+        self.assertEqual(code, 2); apply.assert_not_called()
+        self.assertEqual(result['blockers'], ['stable_disk_identity_required'])
+        self.assertFalse(result['installation_started']); self.assertFalse(result['target_modified'])
+        self.assertEqual(result['retry'], 'fix_preflight_and_retry')
+        self.assertIn('disk.EnableUUID=TRUE', result['diagnostics'][0]['message'])
+        self.assertNotIn('restore_clean_snapshot', json.dumps(result))
+        for sensitive in ('FAKE-SYSTEM', '192.168.50.10', value['root']['uuid'], value['machine_sha256']):
+            self.assertNotIn(sensitive, json.dumps(result))
+
+    def test_multiple_blockers_and_inventory_probe_codes_survive(self):
+        value = inventory(); value['ram_bytes'] = 2 * plan.GIB
+        value['free_bytes'] = 20 * plan.GIB
+        value['probe_errors'] = ['network_inventory_unavailable']
+        code, result, apply = self.invoke(value, ['--apply'])
+        self.assertEqual(code, 2); apply.assert_not_called()
+        self.assertTrue({'ram_below_minimum', 'free_space_below_minimum', 'host_inventory_incomplete'}.issubset(result['blockers']))
+        self.assertEqual(result['probe_errors'], ['network_inventory_unavailable'])
+
+    def test_read_only_check_reports_probe_details_without_applying(self):
+        value = inventory(); value['probe_errors'] = ['port_inventory_unavailable']
+        code, result, apply = self.invoke(value, ['--check'])
+        self.assertEqual(code, 2); apply.assert_not_called()
+        self.assertTrue(result['read_only'])
+        self.assertEqual(result['probe_errors'], ['port_inventory_unavailable'])
+        self.assertIn('host_inventory_incomplete', result['blockers'])
+        self.assertTrue(result['diagnostics'])
+
+    def test_ready_read_only_check_returns_success_without_applying(self):
+        code, result, apply = self.invoke(inventory(), ['--check'])
+        self.assertEqual(code, 0); apply.assert_not_called()
+        self.assertTrue(result['ready_for_apply']); self.assertFalse(any(result['effects'].values()))
+
+    def test_unknown_diagnostic_values_are_redacted_and_bounded(self):
+        result = cli.admission_failure({'blockers': ['private_token_sentinel', {'sensitive': 'fixture'}, 'stable_disk_identity_required'] * 100,
+                                        'host_blockers': [], 'probe_errors': ['SECRET-FIXTURE']})
+        self.assertNotIn('private_token_sentinel', json.dumps(result)); self.assertNotIn('SECRET-FIXTURE', json.dumps(result))
+        self.assertEqual(result['blockers'], ['preflight_diagnostic_unavailable', 'stable_disk_identity_required'])
+        self.assertEqual(result['probe_errors'], ['preflight_diagnostic_unavailable'])
+        self.assertEqual(cli.diagnostic_codes(None), ['preflight_diagnostic_unavailable'])
+
+    def test_abbreviated_apply_flag_is_rejected_before_host_inspection(self):
+        with patch.object(cli, 'collect_inventory', side_effect=AssertionError('inventory must not run')), \
+             contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+            cli.main(['--app'])
+        self.assertEqual(error.exception.code, 2)
+
+    def test_post_start_failure_retains_snapshot_recovery_instruction(self):
+        import community_install as engine
+        artifacts = components()
+        for item in artifacts:
+            if item['required']: item.update(present=True, verified=True, status='verified')
+        output = io.StringIO()
+        with patch.object(cli, 'collect_inventory', return_value=inventory()), \
+             patch.object(cli, 'inspect_components', return_value=artifacts), \
+             patch.object(engine, 'apply', side_effect=engine.InstallError('installation_command_failed', 'packages')), \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(cli.main(['--apply']), 2)
+        self.assertEqual(json.loads(output.getvalue())['retry'], 'restore_clean_snapshot_after_a_started_installation')
+
+
 if __name__ == '__main__':
     unittest.main()
