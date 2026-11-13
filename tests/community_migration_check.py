@@ -283,7 +283,7 @@ class ApiTests(unittest.TestCase):
     def run_case(self,**changes):
         import datetime
         now=datetime.datetime.now(datetime.timezone.utc).isoformat()
-        system=dict(wwn='id:'+'1'*64,serial='VM-ROOT',model='VM root',size_bytes=128*1024**3)
+        system=dict(wwn='id:'+'1'*64,serial='VM-ROOT',model='VM root',size_bytes=128*1024**3,present=True)
         candidate=dict(wwn=DISK['wwn'],serial=DISK['serial'],model='VM extra',size_bytes=DISK['size_bytes'],eligible=True,reasons=[],token='b'*64)
         inventory=dict(schema=1,mode='system-root',boot_id=JOB['boot_id'],generated_at_utc=now,system=system,depot=None,mirror=None,candidates=[candidate])
         state=dict(id=1,version=1,boot_id=JOB['boot_id'],status='idle',error_code='',checked_at=now,config_revision=0,inventory_json=json.dumps(inventory))

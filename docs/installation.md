@@ -1,6 +1,6 @@
 # Temiz Ubuntu VM ile kurulum denemesi
 
-İlk sürüm `v0.76.0-rc.2`, ayrı VM kabul testi bekleyen bir test sürümüdür. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
+İlk sürüm `v0.76.0-rc.3`, ayrı VM kabul testi bekleyen bir test sürümüdür. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
 
 ## VM hazırlığı
 
@@ -35,6 +35,8 @@ sudo bash fls-install.sh --check
 Başarılı kontrolde çıkış kodu 0, engelde 2'dir. `blockers` koşulları, `probe_errors` okunamayan sistem bilgilerini gösterir. İndirme/geçici açma dışında hedef yapılandırma yazılmaz; paket, servis veya veritabanı kurulmaz. Kontrol, mevcut kurulum izlerini de raporlayabilir.
 
 `--apply` ön kontrolde durursa `installation_started:false`, `target_modified:false` ve `retry:fix_preflight_and_retry` döner; parola dosyası oluşmaması beklenir. Koşulu düzeltip tekrar kontrol edin. **Sadece ön kontrol engeli için temiz snapshot'a dönüş gerekmez.** Paket/servis aşaması başladıktan sonraki hatalarda ise önce kanıtları kaydedip temiz snapshot'a dönün. Başlamış kurulumun üzerine tekrar uygulama yapılmaz.
+
+Kurucunun son sağlık kontrolü HTTPS/sürüm bilgisinin yanında disk işçisini bir kez çalıştırır ve panelin PHP okuma modeli üzerinden güncel, bağlı sistem diski envanterini doğrular. Bu kontrol başarısızsa kurulum tamamlandı olarak bildirilmez. Kontrol yalnız yeni, disk işi bulunmayan kurulum veritabanında çalışır.
 
 ## İlk açılış ve kabul sırası
 

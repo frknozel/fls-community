@@ -2,7 +2,7 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.2 bir test sürümüdür.** Kurulum motoru, imzalı dağıtım paketi ve ikinci diske taşıma işçisi uygulanmıştır. Ayrı, temiz Ubuntu VM üzerinde baştan sona kabul testi henüz tamamlanmamıştır. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
+**0.76.0-rc.3 bir test sürümüdür.** Kurulum motoru, imzalı dağıtım paketi ve ikinci diske taşıma işçisi uygulanmıştır. Ayrı, temiz Ubuntu VM üzerinde baştan sona kabul testi henüz tamamlanmamıştır. İlk denemeyi boş ve snapshot alınmış bir VM'de yapın. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 
@@ -14,7 +14,7 @@ Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ex
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates openssl python3
 curl --fail --show-error --location --proto '=https' \
-  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.2/install.sh \
+  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.3/install.sh \
   -o fls-install.sh
 sudo bash fls-install.sh --check
 ```

@@ -240,15 +240,30 @@ class RealAdapterContractChecks(unittest.TestCase):
         from unittest.mock import MagicMock
         connection = MagicMock()
         response = connection.getresponse.return_value
-        response.status = 200; response.read.return_value = b'fixture'
+        response.status = 200; response.read.return_value = b'<html><head><meta name="fls-version" content="0.76.0"></head></html>'
         response.getheader.side_effect = ['text/html', 'text/css', 'application/javascript']
         with patch.object(ssl, 'create_default_context', return_value='fixture-ca') as context, \
-             patch.object(http.client, 'HTTPSConnection', return_value=connection) as factory:
-            engine.HostOps().health(None, {'configuration_proposal': {'bind_ip': '192.0.2.10'}}, {})
+             patch.object(http.client, 'HTTPSConnection', return_value=connection) as factory, \
+             patch.object(engine.HostOps, 'disk_health') as inventory:
+            engine.HostOps().health(None, {'configuration_proposal': {'bind_ip': '192.0.2.10'}}, {'version':'0.76.0'})
+            inventory.assert_called_once()
         context.assert_called_once_with(cafile='/etc/nginx/fls-tls/ca.crt')
         self.assertEqual(connection.request.call_args_list[0].args[:2], ('GET', '/index.php'))
         self.assertEqual(factory.call_args.args[:2], ('192.0.2.10', 443))
         self.assertTrue(connection.close.called)
+
+    def test_stale_visible_version_prevents_successful_install_health(self):
+        import http.client
+        import ssl
+        from unittest.mock import MagicMock
+        connection=MagicMock();response=connection.getresponse.return_value
+        response.status=200;response.read.return_value=b'<meta name="fls-version" content="0.75.0">FLS 0.76.0 appears elsewhere'
+        response.getheader.return_value='text/html'
+        with patch.object(ssl,'create_default_context'), patch.object(http.client,'HTTPSConnection',return_value=connection), \
+             patch.object(engine.HostOps,'disk_health') as inventory:
+            with self.assertRaisesRegex(engine.InstallError,'initial_displayed_version_invalid'):
+                engine.HostOps().health(None,{'configuration_proposal':{'bind_ip':'192.0.2.10'}},{'version':'0.76.0'})
+        inventory.assert_not_called();self.assertTrue(connection.close.called)
 
     def test_package_failure_restores_existing_service_policy_inode_and_mode(self):
         with tempfile.TemporaryDirectory(prefix='fls-install-engine-policy-') as temporary:
@@ -300,6 +315,68 @@ class RealAdapterContractChecks(unittest.TestCase):
             status = cli.main(['--apply', '--inventory', '/not/read'])
         self.assertEqual(status, 2)
         self.assertEqual(json.loads(output.getvalue())['error_code'], 'fixture_apply_forbidden')
+
+
+class DiskHealthChecks(unittest.TestCase):
+    def row(self):
+        now = engine.dt.datetime.now(engine.dt.timezone.utc)
+        identity = 'id:' + 'a'*64
+        role = {'wwn':identity,'serial':'SYNTHETIC-VM','model':'Virtual disk','size_bytes':200*1024**3,'present':True,
+                'filesystem':'ext4','filesystem_uuid':'3079e8b2-3257-462e-a6a1-e1ed88eb4def','mount_path':'/'}
+        boot = '278d37a6-bfeb-4d70-bad7-a1770bfaa18c'
+        inventory = {'schema':1,'boot_id':boot,'mode':'system-root','generated_at_utc':now.isoformat(),
+                     'system':role,'depot':None,'mirror':None,'candidates':[],'progress':None}
+        return {'id':1,'version':1,'boot_id':boot,'checked_at':now,'config_revision':0,'status':'idle',
+                'error_code':'','inventory_json':json.dumps(inventory)}
+
+    def invoke(self, row, *, jobs=0, fail_start=False):
+        from unittest.mock import MagicMock
+        import shutil
+        ops = engine.HostOps(); connection = MagicMock(); cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [(jobs,), tuple(row.values())]
+        cursor.description = [(key,) for key in row]
+        commands=[]
+        original_run=ops.run
+        with tempfile.TemporaryDirectory(prefix='fls-disk-health-') as temporary:
+            app=Path(temporary);(app/'app').mkdir()
+            overlay=ROOT/'tools/community/overlay/app/disk-management.php'
+            shutil.copyfile(overlay if overlay.is_file() else ROOT/'app/disk-management.php',app/'app/disk-management.php')
+            shutil.copyfile(ROOT/'app/management.php',app/'app/management.php')
+            def run(args, **kwargs):
+                commands.append(args)
+                if args[0]=='/usr/bin/systemctl':
+                    if fail_start: raise engine.InstallError('injected_disk_worker_failure')
+                    return b''
+                self.assertEqual(args[0],'/usr/bin/php')
+                return original_run(args,**kwargs)
+            with patch.object(engine,'APP',app), patch.object(ops,'connect',return_value=connection), patch.object(ops,'run',side_effect=run):
+                ops.disk_health()
+        self.assertTrue(connection.close.called)
+        return commands
+
+    def test_fresh_worker_inventory_is_projected_by_actual_php_model(self):
+        commands=self.invoke(self.row())
+        self.assertEqual(commands[0],['/usr/bin/systemctl','start','fls-disk-management.service'])
+        self.assertEqual(commands[1][0],'/usr/bin/php')
+
+    def test_worker_failed_state_cannot_complete_installation(self):
+        row=self.row();row.update(status='error',error_code='disk_operation_failed',inventory_json=None)
+        with self.assertRaisesRegex(engine.InstallError,'initial_disk_inventory_invalid'):self.invoke(row)
+
+    def test_stale_inventory_and_unverified_presence_cannot_complete_installation(self):
+        for change in ('stale','presence'):
+            row=self.row();inventory=json.loads(row['inventory_json'])
+            if change=='stale': inventory['generated_at_utc']=(engine.dt.datetime.now(engine.dt.timezone.utc)-engine.dt.timedelta(minutes=2)).isoformat()
+            else: inventory['system']['present']=False
+            row['inventory_json']=json.dumps(inventory)
+            with self.subTest(change=change), self.assertRaisesRegex(engine.InstallError,'initial_disk_inventory_invalid'):self.invoke(row)
+
+    def test_existing_disk_intent_is_not_run_as_an_install_health_probe(self):
+        with self.assertRaisesRegex(engine.InstallError,'initial_disk_jobs_not_empty'):self.invoke(self.row(),jobs=1)
+
+    def test_worker_start_failure_is_not_hidden_by_healthy_https(self):
+        with self.assertRaisesRegex(engine.InstallError,'injected_disk_worker_failure'):self.invoke(self.row(),fail_start=True)
+
 
 
 if __name__ == '__main__': unittest.main()

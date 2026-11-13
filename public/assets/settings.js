@@ -4,7 +4,7 @@ const managementSectionInfo={
  connections:{description:'Bağlantılar, anahtarlar ve kurulum',scope:'Cihaz bazında',detail:'Seçtiğiniz FortiGate’in bağlantısını ve API anahtarlarını yönetin. Buradaki cihaz seçimi, raporlarda incelediğiniz cihazı değiştirmez.'},
  users:{description:'Hesaplar, roller ve cihaz erişimi',scope:'Hesap ve erişim',detail:'Kullanıcı ekleyin, rolünü belirleyin ve inceleyebileceği FortiGate’leri seçin. Yeni hesaplara cihaz erişimi ayrıca atanır.'},
  archive:{description:'Saatlik paketler ve harici hedefler',scope:'Sunucu genelinde',detail:'Saatlik paketleme ve harici yedekleme hedefleri bu sunucudaki tüm FortiGate’lerin kayıtlarını kapsayabilir. Üstteki cihaz ve tarih seçimi bu ayarları sınırlamaz.'},
- storage:{description:'SSD, ana depo ve isteğe bağlı eşleme',scope:'Sunucu genelinde',detail:'Sistem ve ana depo disklerini inceleyin. En az ana depo kapasitesinde üçüncü bir diski saatlik rsync kopyası için hazırlayabilirsiniz.'},
+ storage:{description:'Sistem diski, ek ana depo ve isteğe bağlı eşleme',scope:'Sunucu genelinde',detail:'Tek diskle başlayabilir, ikinci diski eklediğinizde kayıtları ana depoya taşıyabilirsiniz. Ayrı ana depo hazırlandıktan sonra en az onun kapasitesinde üçüncü bir diskle saatlik rsync kopyası oluşturabilirsiniz.'},
  product:{description:'Lisans, saklama ve arşiv kopyaları',scope:'Kurulum genelinde',detail:'Lisansı, veri saklama sürelerini ve ayrıntılı arşiv kopyalarını inceleyin. Bu ayarlar seçili cihazdan ve rapor tarih aralığından bağımsızdır.'}
 };
 const managementCheckNames={untested:'Henüz sınanmadı',pending:'Sınama bekleniyor',ok:'Bağlantı doğrulandı',error:'Bağlantı kontrol edilmeli'};

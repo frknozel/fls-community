@@ -30,7 +30,7 @@ function disk_management_admin(string $method,bool $lock=false): array {
  if($uid===null)throw new ManagementError('Oturum açmanız gerekiyor.',401);
  if(($_SESSION['role']??'')!=='admin'||$session===null)throw new ManagementError('Disk yönetimi yönetici yetkisi gerektirir.',403);
  $actor=query('SELECT id,username,role,enabled,session_version,must_change FROM users WHERE id=?'.($lock?' FOR UPDATE':''),[$uid])[0]??null;
- if(!$actor||$actor['role']!=='admin'||(int)$actor['enabled']!==1||(int)$actor['session_version']!==$session||(int)$actor['must_change']!==0)throw new ManagementError('Yönetim yetkiniz değişti.',403);return $actor;
+ if(!$actor||($actor['role']??null)!=='admin'||disk_management_number($actor['enabled']??null,0,1)!==1||disk_management_number($actor['session_version']??null,0,4294967295)!==$session||disk_management_number($actor['must_change']??null,0,1)!==0)throw new ManagementError('Yönetim yetkiniz değişti.',403);return $actor;
 }
 /** Never return command output, arbitrary worker metadata or credentials. */
 function disk_management_role(array $row,bool $candidate=false): array {
@@ -40,7 +40,7 @@ function disk_management_role(array $row,bool $candidate=false): array {
  $out=['wwn'=>$wwn,'serial'=>disk_management_text($row['serial']??null,128),'model'=>disk_management_text($row['model']??null,128),'size_bytes'=>$size];
  foreach(['mount_path'=>256,'filesystem'=>32,'filesystem_uuid'=>64,'last_sync_status'=>32] as $key=>$maximum)if(isset($row[$key]))$out[$key]=disk_management_text($row[$key],$maximum);
  foreach(['total_bytes','free_bytes'] as $key)if(isset($row[$key])){$out[$key]=disk_management_number($row[$key]);if($out[$key]===null)throw new ManagementError('Disk kapasitesi okunamadı.',503);}
- if(array_key_exists('present',$row)){if(!is_bool($row['present']))throw new ManagementError('Disk durumu okunamadı.',503);$out['present']=$row['present'];}
+ if(!$candidate||array_key_exists('present',$row)){if(!is_bool($row['present']??null))throw new ManagementError('Disk durumu okunamadı.',503);$out['present']=$row['present'];}
  if(array_key_exists('last_sync_at',$row))$out['last_sync_at']=disk_management_time($row['last_sync_at']);
  if(array_key_exists('last_sync_error',$row))$out['last_sync_error']=disk_management_error($row['last_sync_error']);
  if($candidate){
@@ -70,15 +70,21 @@ function disk_management_job(array $row): array {
  return $out;
 }
 function disk_management_state(?array $row): array {
- $out=['schema'=>1,'mode'=>'hybrid','boot_id'=>null,'checked_at'=>null,'generated_at_utc'=>null,'config_revision'=>0,'status'=>'error','error_code'=>'worker_unavailable','available'=>false,'fresh'=>false,'system'=>null,'depot'=>null,'mirror'=>null,'candidates'=>[],'progress'=>null];
+ $out=['schema'=>1,'mode'=>null,'boot_id'=>null,'checked_at'=>null,'generated_at_utc'=>null,'config_revision'=>0,'status'=>'error','error_code'=>'worker_unavailable','available'=>false,'fresh'=>false,'system'=>null,'depot'=>null,'mirror'=>null,'candidates'=>[],'progress'=>null];
  if(!$row)return $out;
  try{
   if(disk_management_number($row['id']??null,1,1)!==1||disk_management_number($row['version']??null,1,1)!==1||!disk_management_uuid($row['boot_id']??null)||!in_array($row['status']??null,['idle','preparing','syncing','migrating','error'],true))throw new ManagementError('Disk durumu hazır değil.',503);
   $revision=disk_management_number($row['config_revision']??null,0,4294967295);if($revision===null)throw new ManagementError('Disk durumu hazır değil.',503);
-  $out['boot_id']=$row['boot_id'];$out['status']=$row['status'];$out['error_code']=disk_management_error($row['error_code']??'');$out['config_revision']=$revision;$out['checked_at']=disk_management_time($row['checked_at']??null);
-  $json=$row['inventory_json']??null;if(!is_string($json)||strlen($json)>262144)throw new ManagementError('Disk envanteri hazır değil.',503);
+  $error=$row['error_code']??null;if(!is_string($error)||preg_match('/^(?:|[a-z][a-z0-9_]{0,63})$/D',$error)!==1)throw new ManagementError('Disk durumu hazır değil.',503);
+  $checked=disk_management_time($row['checked_at']??null);if($checked===null)throw new ManagementError('Disk durumu hazır değil.',503);
+  $out['boot_id']=$row['boot_id'];$out['status']=$row['status'];$out['error_code']=$error;$out['config_revision']=$revision;$out['checked_at']=$checked;
+  $json=$row['inventory_json']??null;
+  // A first inventory failure can have a valid worker status without a payload.
+  // Preserve only its bounded code; unavailable roles never imply disconnection.
+  if($json===null&&$out['status']==='error'&&$error!=='')return $out;
+  if(!is_string($json)||strlen($json)>262144)throw new ManagementError('Disk envanteri hazır değil.',503);
   $inventory=json_decode($json,true,24,JSON_THROW_ON_ERROR);if(!is_array($inventory)||($inventory['schema']??null)!==1||($inventory['boot_id']??null)!==$out['boot_id']||!is_array($inventory['system']??null)||!array_key_exists('depot',$inventory)||($inventory['depot']!==null&&!is_array($inventory['depot']))||!array_key_exists('mirror',$inventory)||!is_array($inventory['candidates']??null)||!array_is_list($inventory['candidates'])||count($inventory['candidates'])>64)throw new ManagementError('Disk envanteri hazır değil.',503);
-  $out['mode']=$inventory['mode']??'hybrid';if(!in_array($out['mode'],['system-root','hybrid'],true)||($out['mode']==='system-root'&&$inventory['depot']!==null)||($out['mode']==='hybrid'&&$inventory['depot']===null))throw new ManagementError('Disk rolleri doğrulanamadı.',503);
+  $out['mode']=$inventory['mode']??null;if(!in_array($out['mode'],['system-root','hybrid'],true)||($out['mode']==='system-root'&&($inventory['depot']!==null||$inventory['mirror']!==null))||($out['mode']==='hybrid'&&$inventory['depot']===null))throw new ManagementError('Disk rolleri doğrulanamadı.',503);
   $out['generated_at_utc']=disk_management_time($inventory['generated_at_utc']??null);$out['system']=disk_management_role($inventory['system']);$out['depot']=$inventory['depot']===null?null:disk_management_role($inventory['depot']);$out['mirror']=$inventory['mirror']===null?null:disk_management_role($inventory['mirror']);
   if(($out['depot']!==null&&$out['system']['wwn']===($out['depot']['wwn']??null))||($out['mirror']!==null&&in_array($out['mirror']['wwn'],[$out['system']['wwn'],($out['depot']['wwn']??null)],true)))throw new ManagementError('Disk rolleri doğrulanamadı.',503);
   $seen=[];foreach($inventory['candidates'] as $candidate){if(!is_array($candidate))throw new ManagementError('Disk envanteri okunamadı.',503);$candidate=disk_management_role($candidate,true);if($candidate['wwn']!==''){if(isset($seen[$candidate['wwn']]))throw new ManagementError('Disk kimliği yineleniyor.',503);$seen[$candidate['wwn']]=true;}
@@ -88,8 +94,8 @@ function disk_management_state(?array $row): array {
   }
   $out['progress']=disk_management_progress($inventory['progress']??null);
   $ages=[disk_management_age($out['checked_at']),disk_management_age($out['generated_at_utc'])];$out['fresh']=true;foreach($ages as $age)if($age===null||$age< -5||$age>45)$out['fresh']=false;
-  $out['available']=$out['fresh']&&$out['status']!=='error'&&$out['error_code']==='';
- }catch(Throwable $e){$out['available']=false;$out['fresh']=false;$out['error_code']='state_invalid';$out['status']='error';$out['system']=null;$out['depot']=null;$out['mirror']=null;$out['candidates']=[];}
+  $out['available']=$out['fresh']&&$out['status']!=='error'&&$out['error_code']===''&&$out['system']['present']===true&&($out['depot']===null||$out['depot']['present']===true);
+ }catch(Throwable $e){$out['available']=false;$out['fresh']=false;$out['error_code']='state_invalid';$out['status']='error';$out['mode']=null;$out['system']=null;$out['depot']=null;$out['mirror']=null;$out['candidates']=[];$out['progress']=null;}
  return $out;
 }
 function disk_management_snapshot(): array {
@@ -97,7 +103,7 @@ function disk_management_snapshot(): array {
  try{$state=disk_management_state(query('SELECT * FROM disk_management_state WHERE id=1')[0]??null);$jobs=array_map('disk_management_job',query('SELECT * FROM disk_management_jobs ORDER BY id DESC LIMIT 25'));$active=query("SELECT * FROM disk_management_jobs WHERE status IN ('queued','running') ORDER BY id LIMIT 1")[0]??null;$active=$active?disk_management_job($active):null;}
  catch(PDOException $e){if((int)($e->errorInfo[1]??0)!==1146)throw $e;$state=disk_management_state(null);$jobs=[];$active=null;}
  $idle=$state['available']&&$state['status']==='idle'&&$active===null;
- return $state+['jobs'=>$jobs,'active_job'=>$active,'can_migrate'=>$idle&&$state['mode']==='system-root'&&$state['mirror']===null&&count(array_filter($state['candidates'],fn($row)=>$row['eligible']))>0,'can_prepare'=>$idle&&$state['mode']==='hybrid'&&$state['mirror']===null&&count(array_filter($state['candidates'],fn($row)=>$row['eligible']))>0,'can_sync'=>$idle&&$state['mirror']!==null&&($state['mirror']['present']??true)===true];
+ return $state+['jobs'=>$jobs,'active_job'=>$active,'can_migrate'=>$idle&&$state['mode']==='system-root'&&$state['mirror']===null&&count(array_filter($state['candidates'],fn($row)=>$row['eligible']))>0,'can_prepare'=>$idle&&$state['mode']==='hybrid'&&$state['mirror']===null&&count(array_filter($state['candidates'],fn($row)=>$row['eligible']))>0,'can_sync'=>$idle&&$state['mirror']!==null&&($state['mirror']['present']??null)===true];
 }
 function disk_management_write(string $route,array $data): array {
  disk_management_admin('POST');$csrf=$data['_csrf']??$_SERVER['HTTP_X_CSRF_TOKEN']??'';if(!is_string($csrf)||$csrf===''||!is_string($_SESSION['csrf']??null)||$_SESSION['csrf']===''||!hash_equals($_SESSION['csrf'],$csrf))throw new ManagementError('Oturum doğrulaması başarısız.',403);
@@ -123,7 +129,7 @@ function disk_management_write(string $route,array $data): array {
    $matches=array_values(array_filter($state['candidates'],fn($candidate)=>$candidate['wwn']===$wwn&&hash_equals($candidate['token'],$token)));if(count($matches)!==1)throw new ManagementError('Disk kimliği veya önizlemesi değişti. Ekranı yenileyin.',409);$disk=$matches[0];
    if(!$disk['eligible']||$disk['reasons']||in_array($disk['wwn'],[$state['system']['wwn'],($state['depot']['wwn']??null)],true)||($disk['serial']!==''&&in_array($disk['serial'],[$state['system']['serial'],($state['depot']['serial']??null)],true))||($state['depot']!==null&&$disk['size_bytes']<$state['depot']['size_bytes']))throw new ManagementError('Bu disk aynalama için uygun değil.',409);
    if(query('SELECT id FROM disk_management_jobs WHERE inventory_token=? LIMIT 1 FOR UPDATE',[$token]))throw new ManagementError('Bu disk önizlemesi daha önce kullanılmış. Ekranı yenileyin.',409);
-  }else{$disk=$state['mirror'];if($disk===null||($disk['present']??true)!==true)throw new ManagementError('Kullanılabilir aynalama diski tanımlı değil.',409);if(in_array($disk['wwn'],[$state['system']['wwn'],($state['depot']['wwn']??null)],true)||$disk['size_bytes']<$state['depot']['size_bytes'])throw new ManagementError('Aynalama diski doğrulanamadı.',409);}
+  }else{$disk=$state['mirror'];if($disk===null||($disk['present']??null)!==true)throw new ManagementError('Kullanılabilir aynalama diski tanımlı değil.',409);if(in_array($disk['wwn'],[$state['system']['wwn'],($state['depot']['wwn']??null)],true)||$state['depot']===null||$disk['size_bytes']<$state['depot']['size_bytes'])throw new ManagementError('Aynalama diski doğrulanamadı.',409);}
   execute('INSERT INTO disk_management_jobs(request_key,action,requested_by_uid,requested_session_version,requested_by,requested_at,expires_at,boot_id,disk_wwn,disk_serial,disk_size_bytes,inventory_token,config_revision,confirmed) VALUES(?,?,?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)+INTERVAL 5 MINUTE,?,?,?,?,?,?,?)',[$request,$action,(int)$actor['id'],(int)$actor['session_version'],$actor['username'],$boot,$disk['wwn'],$disk['serial'],$disk['size_bytes'],$token,$state['config_revision'],in_array($action,['prepare','migrate'],true)?1:0]);$id=(int)$pdo->lastInsertId();
   audit('disk_management_request','action='.$action.';job_id='.$id.';disk_wwn='.$disk['wwn'].';boot_id='.$boot.';request_key='.$request);$job=disk_management_job(query('SELECT * FROM disk_management_jobs WHERE id=?',[$id])[0]);$pdo->commit();return ['saved'=>true,'duplicate'=>false,'job'=>$job,'http_status'=>202];
  }catch(PDOException $e){if($pdo->inTransaction())$pdo->rollBack();$code=(int)($e->errorInfo[1]??0);if($code===1146)throw new ManagementError('Disk yönetimi henüz hazır değil.',503);if(in_array($code,[1205,1213,1062],true))throw new ManagementError('Başka bir disk işlemi sürüyor veya önizleme kullanılmış. Durumu yenileyin.',409);throw $e;}

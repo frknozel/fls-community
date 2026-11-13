@@ -25,6 +25,7 @@ MIRROR = Path('/srv/fls-mirror')
 MIRROR_CONFIG = Path('/etc/fls/mirror.json')
 BOOT_ID = Path('/proc/sys/kernel/random/boot_id')
 SYS_BLOCK = Path('/sys/class/block')
+UDEV_DATA = Path('/run/udev/data')
 PROC = Path('/proc')
 REQUEST_MAX_AGE = 300
 WWN = re.compile(r'0x[0-9a-f]{16}')
@@ -195,7 +196,7 @@ class LinuxProbe:
                 sector_size = int(trusted_read(SYS_BLOCK / kname / 'queue/logical_block_size', 8192).strip())
                 physical_size = int(trusted_read(SYS_BLOCK / kname / 'size', 8192).strip()) * 512
                 properties = {}
-                for line in trusted_read(Path('/run/udev/data') / ('b' + node['maj:min'])).splitlines():
+                for line in trusted_read(UDEV_DATA / ('b' + node['maj:min'])).splitlines():
                     if line.startswith('E:') and '=' in line:
                         key, value = line[2:].split('=', 1)
                         if key in properties:
@@ -602,7 +603,12 @@ class CommunityHostOps(HostOps):
         disks = snapshot['disks']
         root_identity = state.get('device_identity', state['device_wwn'])
         _, root_disk = filesystem_identity(Path('/').stat().st_dev, state['root_uuid'], root_identity)
-        root_number = trusted_read(root_disk / 'dev', 128).strip()
+        # sysfs attributes advertise a page-sized st_size even when their
+        # actual payload is only "8:0\n". Keep the trusted ownership/type and
+        # bounded-read checks without rejecting that normal kernel metadata.
+        root_number = trusted_read(root_disk / 'dev', 8192).strip()
+        if re.fullmatch(r'[0-9]+:[0-9]+', root_number) is None:
+            raise DiskOpsError('pinned_system_disk_number_invalid')
         system = next((disk for disk in disks if disk['major_minor'] == root_number), None)
         if not system:
             raise DiskOpsError('pinned_system_disk_missing')

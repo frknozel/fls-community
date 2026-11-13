@@ -2,7 +2,7 @@
   "schema": 1,
   "edition": "community",
   "version": "0.76.0",
-  "release_tag": "v0.76.0-rc.2",
+  "release_tag": "v0.76.0-rc.3",
   "license": "Apache-2.0",
   "stage": "release-candidate-awaiting-independent-vm",
   "automatic_installation_available": true,

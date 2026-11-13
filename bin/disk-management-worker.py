@@ -235,7 +235,11 @@ def mirror_config():
 def role(value, mount, filesystem_uuid):
     result = {key: value.get(key) for key in ('wwn', 'serial', 'model', 'size_bytes')}
     result['model'] = result['model'] or ''
-    result.update({'mount_path': mount, 'filesystem': 'ext4', 'filesystem_uuid': filesystem_uuid})
+    # System/depot roles are published only after the host inventory verifies
+    # their pinned physical and filesystem identities. The mirror's actual
+    # mount presence is checked separately below and replaces this value.
+    result.update({'mount_path': mount, 'filesystem': 'ext4', 'filesystem_uuid': filesystem_uuid,
+                   'present': True})
     return result
 
 

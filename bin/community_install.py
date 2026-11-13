@@ -729,6 +729,40 @@ php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,p
         state = self.run(['/usr/bin/systemctl', 'show', 'fortigate-collector.service', '--property=ActiveState,MainPID'], capture=True).decode()
         require('ActiveState=inactive' in state and 'MainPID=0' in state, 'collector_started_during_installation')
 
+    def disk_health(self):
+        # Explicitly exercise the fresh worker and its actual PHP read model.
+        # The new database must contain no administrative disk mutation intent.
+        connection = self.connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT COUNT(*) FROM fls.disk_management_jobs')
+                require(cursor.fetchone() == (0,), 'initial_disk_jobs_not_empty')
+            self.run(['/usr/bin/systemctl', 'start', 'fls-disk-management.service'], timeout=180)
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT * FROM fls.disk_management_state WHERE id=1')
+                value = cursor.fetchone()
+                require(value is not None, 'initial_disk_inventory_missing')
+                names = [field[0] for field in cursor.description]
+                row = dict(zip(names, value))
+        finally:
+            connection.close()
+        for key, value in list(row.items()):
+            if isinstance(value, dt.datetime): row[key] = value.isoformat(sep=' ')
+        probe = ("require $argv[1];$row=json_decode(stream_get_contents(STDIN),true,32,JSON_THROW_ON_ERROR);"
+                 "$state=disk_management_state($row);echo json_encode(['available'=>$state['available'],"
+                 "'fresh'=>$state['fresh'],'mode'=>$state['mode'],"
+                 "'system_present'=>$state['system']['present']??false,"
+                 "'depot'=>$state['depot'],'mirror'=>$state['mirror']],JSON_THROW_ON_ERROR);")
+        raw = self.run(['/usr/bin/php', '-r', probe, str(APP / 'app/disk-management.php')],
+                       input=json.dumps(row).encode(), capture=True)
+        require(len(raw) <= 16384, 'initial_disk_inventory_invalid')
+        try: report = json.loads(raw)
+        except (ValueError, UnicodeError): raise InstallError('initial_disk_inventory_invalid') from None
+        require(isinstance(report, dict) and report.get('available') is True and report.get('fresh') is True
+                and report.get('mode') == 'system-root' and report.get('system_present') is True
+                and report.get('depot') is None and report.get('mirror') is None,
+                'initial_disk_inventory_invalid')
+
     def health(self, source, plan, release):
         # These requests remain on the new host and verify TLS with its own CA.
         import http.client
@@ -743,6 +777,9 @@ php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,p
                 response = connection.getresponse()
                 data = response.read(2 * 1024 ** 2 + 1)
                 content_type = response.getheader('Content-Type', '').split(';', 1)[0]
+                if path == '/index.php':
+                    require(b'<meta name="fls-version" content="' + str(release['version']).encode('ascii') + b'">' in data,
+                            'initial_displayed_version_invalid')
                 require(response.status == 200 and 0 < len(data) <= 2 * 1024 ** 2
                         and content_type in ((mime, 'text/javascript') if path.endswith('.js') else (mime,)),
                         'initial_https_self_test_failed')
@@ -750,3 +787,4 @@ php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,p
             raise InstallError('initial_https_self_test_failed') from None
         finally:
             connection.close()
+        self.disk_health()
