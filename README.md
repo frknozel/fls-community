@@ -2,7 +2,9 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.5 bir test sürümüdür.** Önceki RC4, ayrı ESXi / Ubuntu 24.04 VM'de temiz kurulum, yönetici girişi, tek disk rolleri, `/srv/fls-server` yolları, ilk duraklatılmış açılış ve API anahtarı olmadan gerçek FortiGate log alımı için kullanıcı tarafından doğrulandı. Log alımı açıkken yeniden başlatma sonrası akışın sürmesi de doğrulandı; beş temel servis aktif ve başarısız birim yoktu. RC4'ün sistem yedeği denemesinde zorunlu kurtarma kılavuzunun paket dışında kaldığı görüldü. RC5 kılavuzu ve eksik kılavuzla yayın yapılmasını engelleyen paket kontrolünü ekler. **RC5'in temiz VM kurulumu ve yedek kabulü henüz bekliyor**; kuyruk/yazım ve veri bütünlüğü, ikinci diske taşıma ve tam kurtarma kabulü de tamamlanmış değildir. [Test adımları ve sınırlar](docs/installation.md).
+**0.76.0-rc.5 bir test sürümüdür.** Ayrı bir ESXi / Ubuntu 24.04 test VM'sinde temiz işletim sistemi snapshot'ından RC5 kurulumu, FortiGate'ten gerçek log alımı ve panelden logsuz sistem yedeği oluşturup dışarı indirme kullanıcı tarafından doğrulandı. İndirilen yedeğin paket hash'leri, kurulu RC5 kaynak envanteri, SQL kapsamı ve anahtar eşleşmeleri salt okunur olarak incelendi. RC4'teki eksik kurtarma kılavuzu hatasının bu VM'de giderildiği doğrulandı.
+
+Tam kurtarma provası, ikinci diske taşıma, kuyruk/yazım ve veri bütünlüğü kabulü henüz tamamlanmadı. Alım açıkken başarılı yeniden başlatma önceki RC4 denemesinde doğrulanmıştı; RC5 için yeniden başlatma kabulü ayrıca bekliyor. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 

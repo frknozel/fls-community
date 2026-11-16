@@ -1,6 +1,8 @@
 # Temiz Ubuntu VM ile kurulum denemesi
 
-`v0.76.0-rc.5`, uçtan uca kabul testi henüz tamamlanmamış bir test sürümüdür. Önceki RC4'te ayrı ESXi / Ubuntu 24.04 VM kurulumu, yönetici girişi, tek disk rolleri, `/srv/fls-server` yolları, duraklatılmış açılış, API anahtarı olmadan gerçek log alımı ve alım açıkken yeniden başlatma sonrası logların devam etmesi kullanıcı tarafından doğrulandı. Yeniden başlatma sonrası beş temel servis aktifti; başarısız birim ve collector/indexer warning günlüğü yoktu. Bu, eksiksiz veri kabulünün veya kuyruk/yazım denetiminin tamamlandığı anlamına gelmez. RC4 sistem yedeği `recovery_document_missing` ile durdu; zorunlu kılavuz pakette yoktu. RC5 kılavuzu ve paket oluşturma aşamasında zorunlu kılavuz denetimini ekler. **RC5'in temiz kurulum ve yedek denemesi henüz bekliyor.** İkinci diske taşıma ve tam kurtarma kabulü de tamamlanmadı. Mevcut çalışan FLS sunucusuna kurulmaz. Kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
+`v0.76.0-rc.5`, uçtan uca kabul testi henüz tamamlanmamış bir test sürümüdür. Ayrı ESXi / Ubuntu 24.04 VM'de temiz işletim sistemi snapshot'ına dönülerek RC5 kurulumu yapıldı; kullanıcı gerçek FortiGate loglarının geldiğini ve panelden FLS System Backup oluşturup indirebildiğini doğruladı. İndirilen arşivde paket ve dosya hash'leri, 362 kurulu RC5 kaynak dosyasının envanteri, SQL kapsamı, kurtarma kılavuzu ve imza/TLS anahtar çiftleri salt okunur doğrulamadan geçti. 80 tablo yapısı bulunuyor; yapılandırma dışındaki 60 tabloda veri satırı yok. Bu incelemede SQL çalıştırılmadı veya geri yükleme yapılmadı.
+
+RC4'ün `recovery_document_missing` yedek hatası bu RC5 denemesinde giderilmiş görünüyor. Önceki RC4'te alım açıkken yeniden başlatma sonrası akış ve beş temel servisin sağlığı da kullanıcı tarafından doğrulanmıştı; bunu RC5 için yapılmış saymıyoruz. RC5 yeniden başlatma, kuyruk/yazım ve veri bütünlüğü, ikinci diske taşıma ve ayrı Ubuntu cihazında tam kurtarma kabulü henüz bekliyor. Mevcut çalışan FLS sunucusuna kurulum yapılmaz; kurucu mevcut FLS, veri dizini veya MariaDB veritabanı izleri varsa yazmaya başlamadan durur.
 
 Bu sürümün mantıksal veri kökü `/srv/fls-server` dizinidir. MariaDB/indeksler ve geçici teslim kuyruğu sistem diskinde bu kökte tutulur. Ayrı depo diski `/srv/fls-storage` altında bağlanır; log ve yedek dizinleri bu depodan mantıksal köke bağlanır. Önceki bir RC denemesinden RC5'e geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; `--apply` yerinde güncelleme veya eski yedeği dönüştürme aracı değildir.
 
@@ -90,7 +92,7 @@ Root'a özel kurulum durumu `/var/lib/fls-community-install/journal.json` içind
 
 ## Yedek ve kurtarma sınırı
 
-[Community logsuz yedek ve kurtarma kılavuzu](system-backup-restore.md), yedeğin kapsamını ve ayrı kurtarma hedefindeki güvenli başlangıcı açıklar. RC4 paketindeki eksik kılavuz nedeniyle başarısız olan yedek işleri doğrulanmış yeni yedek sayılmaz. RC5 kurulumundan sonra panelden yeni yedek oluşturup indirmeyi yeniden sınayın.
+[Community logsuz yedek ve kurtarma kılavuzu](system-backup-restore.md), yedeğin kapsamını ve ayrı kurtarma hedefindeki güvenli başlangıcı açıklar. RC4 paketindeki eksik kılavuz nedeniyle başarısız olan yedek işleri doğrulanmış yeni yedek sayılmaz. RC5'in ayrı VM denemesinde yeni yedek oluşturma ve indirme kullanıcı tarafından doğrulandı. Her yeni kurulumda bu adımı ayrıca sınayın; dosya denetimi tam kurtarma provasının yerine geçmez.
 
 Logsuz yedek; yazılım, sistem veritabanı/ayarları ve gerekli anahtarları içerir; günlük log arşivinin yerine geçmez. Sağlayıcı SDK'sı ve ücretli lisans çekirdeği Community yedeğinde zorunlu değildir. Git geçmişi gerekmez; kurulu sürümün dosya manifesti doğrulanır.
 

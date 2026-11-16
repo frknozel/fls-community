@@ -14,8 +14,8 @@
   "collector_binary_distributed": "signed-release-asset",
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
+    "independent_rc5_reboot_and_intake_continuity_acceptance",
     "independent_ingestion_queue_error_and_data_completeness_acceptance",
-    "independent_system_backup_acceptance",
     "independent_second_disk_migration_and_reboot_acceptance",
     "independent_full_restore_acceptance",
     "optional_provider_sdk_setup_and_acceptance"
@@ -37,14 +37,28 @@
     "ingestion_data_completeness": "pending",
     "reboot_service_health": "user_confirmed"
   },
-  "checks_updated_on": "2026-11-13",
+  "checks_updated_on": "2026-11-16",
   "independent_vm_checks_release_tag": "v0.76.0-rc.4",
-  "latest_candidate_clean_vm_acceptance": "pending",
+  "latest_candidate_clean_vm_acceptance": "partial_user_confirmed",
   "system_backup_create_failure": {
     "release_tag": "v0.76.0-rc.4",
     "code": "recovery_document_missing",
     "status": "user_confirmed",
     "fixed_in": "v0.76.0-rc.5",
-    "fix_acceptance": "pending"
+    "fix_acceptance": "user_confirmed_create_and_download"
+  },
+  "latest_candidate_vm_checks": {
+    "release_tag": "v0.76.0-rc.5",
+    "clean_install": "user_confirmed",
+    "real_fortigate_log_ingestion": "user_confirmed",
+    "system_backup_create_and_download": "user_confirmed",
+    "uploaded_backup_file_and_source_integrity": "passed_read_only_inspection",
+    "uploaded_backup_sql_scope": "passed_read_only_inspection",
+    "uploaded_backup_signing_and_tls_key_pairs": "passed_read_only_inspection",
+    "reboot_and_intake_continuity": "pending",
+    "queue_and_write_error_acceptance": "pending",
+    "ingestion_data_completeness": "pending",
+    "second_disk_migration_and_reboot": "pending",
+    "full_restore": "pending"
   }
 }
