@@ -14,11 +14,11 @@
   "collector_binary_distributed": "signed-release-asset",
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
-    "independent_rc6_reboot_and_intake_continuity_acceptance",
+    "independent_rc6_system_backup_create_and_download_acceptance",
     "independent_ingestion_queue_error_and_data_completeness_acceptance",
-    "independent_second_disk_migration_and_reboot_acceptance",
     "independent_full_restore_acceptance",
-    "optional_provider_sdk_setup_and_acceptance"
+    "optional_provider_sdk_setup_and_acceptance",
+    "independent_missing_depot_fail_closed_acceptance"
   ],
   "independent_vm_checks": {
     "clean_install": "user_confirmed",
@@ -39,7 +39,7 @@
   },
   "checks_updated_on": "2026-11-16",
   "independent_vm_checks_release_tag": "v0.76.0-rc.4",
-  "latest_candidate_clean_vm_acceptance": "pending",
+  "latest_candidate_clean_vm_acceptance": "partial_user_confirmed",
   "system_backup_create_failure": {
     "release_tag": "v0.76.0-rc.4",
     "code": "recovery_document_missing",
@@ -49,14 +49,24 @@
   },
   "latest_candidate_vm_checks": {
     "release_tag": "v0.76.0-rc.6",
-    "clean_install": "pending",
-    "real_fortigate_log_ingestion": "pending",
+    "clean_install": "user_confirmed",
+    "real_fortigate_log_ingestion": "user_confirmed",
     "system_backup_create_and_download": "pending",
-    "reboot_and_intake_continuity": "pending",
+    "reboot_and_intake_continuity": "user_confirmed_after_storage_migration",
     "queue_and_write_error_acceptance": "pending",
     "ingestion_data_completeness": "pending",
-    "second_disk_migration_and_reboot": "pending",
-    "full_restore": "pending"
+    "second_disk_migration_and_reboot": "user_confirmed",
+    "full_restore": "pending",
+    "second_disk_migration": "user_confirmed_panel_completed",
+    "post_migration_storage_validation": "user_confirmed_read_only_hybrid_system_queue",
+    "post_migration_operational_bind_mounts": "user_confirmed_six_ext4_bind_paths",
+    "post_migration_service_health": "user_confirmed_five_active_zero_failed",
+    "post_migration_log_ingestion": "user_confirmed_after_panel_reboot",
+    "storage_ui_refresh_stability": "user_confirmed_open_details_and_scroll_preserved",
+    "post_migration_reboot_service_health": "user_confirmed_five_active_zero_failed",
+    "post_migration_collector_identity_storage_validation": "user_confirmed_syslog_adm_hybrid_system_queue",
+    "post_migration_reboot_bind_mounts": "user_confirmed_six_ext4_bind_paths",
+    "missing_depot_fail_closed": "pending"
   },
   "previous_candidate_vm_checks": {
     "release_tag": "v0.76.0-rc.5",
@@ -79,6 +89,6 @@
     "root_cause": "depot_parent_search_permissions",
     "status": "user_confirmed",
     "fix_release": "v0.76.0-rc.6",
-    "fix_acceptance": "pending"
+    "fix_acceptance": "user_confirmed_rc6_migration_completed"
   }
 }

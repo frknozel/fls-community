@@ -6,7 +6,7 @@
 | İki disk (`hybrid`) | Ubuntu, FLS, MariaDB/indeksler ve 10 GB sınırlı dayanıklı kuyruk | Ham kayıt, arşiv, metrik, logsuz yedek ve günlük DB dump |
 | Üç disk | Aynı sistem ve ana depo | Üçüncü disk yalnız ana deponun saatlik rsync kopyası |
 
-Bu geçiş işçisi uygulanmıştır; ayrı boş VM'de uçtan uca disk/yeniden başlatma kabulü henüz tamamlanmamıştır. İlk denemeyi snapshot'lı VM'de yapın.
+RC6'nın ayrı ESXi / Ubuntu test VM'sinde 200 GiB sistem diskinden 100 GiB ikinci diske panel üzerinden geçişi 16 Kasım 2026'da tamamlandı. Taşıma sonrası panelden yeniden başlatmada FLS açıldı ve loglar kendiliğinden gelmeye devam etti. Alıcının `syslog:adm` hesabıyla salt okunur depolama denetimi geçti; ayrı ext4 depo, altı log/yedek bağlantısı ve sistem diskinde kalan kuyruk doğrulandı. Beş temel servis çalışıyor ve başarısız birim yok. Sayfa yenilemelerinde açık ayrıntı ve kaydırma konumunun korunduğu da kullanıcı tarafından doğrulandı. Tüm logların eksiksizliği ve disk eksikken koruma kabulü henüz tamamlanmadı. İlk denemeyi snapshot'lı VM'de yapın.
 
 Uygulamanın veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak sabittir. MariaDB `/srv/fls-server/database/mysql`, geçici kuyruk `/srv/fls-server/queue` altında sistem diskinde kalır. `/opt/fortigate` collector çalışma zamanı ve `/etc/fortigate` collector yapılandırması için korunur.
 

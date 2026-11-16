@@ -2,9 +2,9 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.6 bir test sürümüdür.** Önceki RC5, ayrı ESXi / Ubuntu VM'de temiz kurulum, gerçek FortiGate log alımı, yeniden başlatma sonrası otomatik alım ve logsuz sistem yedeği oluşturup indirme için kullanıcı tarafından doğrulandı. İkinci diske taşıma ise dosyalar doğrulanıp bağlandıktan sonra alıcının yeniden başlatılmasında başarısız oldu: yeni deponun üst dizinlerine servis hesabının geçiş izni yoktu.
+**0.76.0-rc.6 bir test sürümüdür.** Ayrı ESXi / Ubuntu 24.04 VM'de temiz RC6 kurulumu, gerçek FortiGate log alımı ve panelden 100 GiB ikinci diske taşıma kullanıcı tarafından doğrulandı. Taşıma sonrası panelden yeniden başlatmada FLS açıldı ve loglar otomatik gelmeye devam etti. Alıcının `syslog:adm` hesabıyla salt okunur depolama denetimi geçti; ayrı ext4 depo, altı log/yedek bağlantısı ve sistem diskinde kalan kuyruk doğrulandı. Beş temel servis çalışıyor ve başarısız systemd birimi yok.
 
-RC6, depo üst dizinlerinin geçiş izinlerini düzenler ve servisleri açmadan önce depolama denetimini gerçek alıcı hesabıyla da çalıştırır. Disk sayfasının otomatik yenilenmesi açık ayrıntıları ve kaydırma konumunu korur. **RC6'nın temiz VM kurulumu ve taşıma kabulü henüz bekliyor.** Kuyruk/veri bütünlüğü, ikinci diskle yeniden başlatma ve ayrı cihazda tam kurtarma kabulü tamamlanmadı. [Test adımları ve sınırlar](docs/installation.md).
+RC6, RC5'te taşıma sırasında görülen üst dizin izin hatasını giderir. Disk sayfasında açık ayrıntıların ve kaydırma konumunun otomatik yenilemelerde korunduğu da kullanıcı tarafından doğrulandı. Kuyruk/yazım hataları, veri bütünlüğü, RC6 sistem yedeği ve ayrı cihazda tam kurtarma kabulü henüz tamamlanmadı. Önceki RC5'te logsuz yedek oluşturma/indirme kullanıcı tarafından doğrulanmıştı. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 
