@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import tarfile
 import tempfile
 import types
 import unittest
@@ -197,6 +198,89 @@ class PreparationFixtures(unittest.TestCase):
 
     def prepare(self):
         return tool.prepare((self.download, self.runtime), self.runner, self.temporary_stage)
+
+    def real_helpers(self):
+        """Load the pinned RC6 functions, normalizing only the private PHP edition."""
+        modules = []
+        for name, digest in tool.HELPERS.items():
+            data = (ROOT / 'bin' / name).read_bytes().replace(b'8.5', b'8.3')
+            self.assertEqual(hashlib.sha256(data).hexdigest(), digest)
+            module = types.ModuleType('fls_recovery_real_helper_fixture_' + str(len(modules)))
+            module.__file__ = str(ROOT / 'bin' / name)
+            exec(compile(data, module.__file__, 'exec'), module.__dict__)
+            modules.append(module)
+        download, runtime = modules
+        self.assertEqual(tuple(download.GUEST_PACKAGES), tool.ROOTS)
+        self.assertEqual(runtime.REQUIRED, set(tool.ROOTS))
+        # Keep the runtime parser/build functions intact. Only ownership is
+        # translated for unprivileged CI; the tool still checks every input.
+        def checked(path):
+            path = Path(path)
+            self.assertTrue(path.is_relative_to(self.stage))
+            tool.trusted_read(path, 32 * 1024 ** 2)
+            return path
+        runtime.checked = checked
+        def publish(folder, age, destination):
+            self.publications.append((folder, age, destination))
+            return runtime.build(folder, age, self.stage / 'fixture-runtime.tar.gz')
+        runtime.publish = publish
+        return download, runtime
+
+    def real_helper_runner(self, command, **options):
+        """Fixture APT and dpkg metadata; never launch an operating-system tool."""
+        if command[:2] == ['/usr/bin/apt-cache', 'depends']:
+            self.calls.append((command, options))
+            packages = [*tool.ROOTS, 'age']
+            # Exercise the real dependency parser's nested/virtual filtering.
+            return types.SimpleNamespace(returncode=0, stdout=''.join(
+                name + '\n  Depends: fixture-virtual\n<fixture-virtual>\n' for name in packages))
+        if command[:2] == ['/usr/bin/apt-get', 'download']:
+            self.calls.append((command, options))
+            for name in command[2:]:
+                (Path(options['cwd']) / (name + '_1_amd64.deb')).write_bytes(
+                    ('fixture package ' + name + '; never executed\n').encode())
+            return types.SimpleNamespace(returncode=0)
+        if command[:2] == ['/usr/bin/dpkg-deb', '--field']:
+            self.calls.append((command, options))
+            package = Path(command[2]).name.split('_', 1)[0]
+            architecture = getattr(self, 'package_architecture', 'amd64')
+            return types.SimpleNamespace(returncode=0, stdout=(
+                'Package: ' + package + '\nVersion: 1\nArchitecture: ' + architecture + '\n'))
+        return self.runner(command, **options)
+
+    def test_pinned_rc6_downloader_and_runtime_use_only_local_command_adapters(self):
+        modules = self.real_helpers()
+        with patch.object(subprocess, 'run', side_effect=AssertionError('host command attempted')), \
+             patch.object(subprocess, 'check_output', side_effect=AssertionError('host metadata command attempted')):
+            result = tool.prepare(modules, self.real_helper_runner, self.temporary_stage)
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['package_count'], len(tool.ROOTS) + 1)
+        self.assertEqual(len(self.publications), 1)
+        download = next((command, options) for command, options in self.calls if command[1] == 'download')
+        self.assertEqual(set(download[0][2:]), {*tool.ROOTS, 'age'})
+        self.assertEqual(download[1]['stderr'], subprocess.STDOUT)
+        self.assertEqual(download[1]['env']['PATH'], '/usr/sbin:/usr/bin:/sbin:/bin')
+        metadata = [(command, options) for command, options in self.calls if command[1] == '--field']
+        # The real publisher builds a second inventory through the same adapter.
+        self.assertEqual(len(metadata), 2 * (len(tool.ROOTS) + 1))
+        for command, options in metadata:
+            self.assertEqual(len(command), 3)
+            self.assertEqual(Path(command[2]).parent, self.stage / 'guest-debs')
+            self.assertEqual(options['env'], {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8'})
+            self.assertEqual(options['stdin'], subprocess.DEVNULL)
+        with tarfile.open(self.stage / 'fixture-runtime.tar.gz') as archive:
+            manifest = json.load(archive.extractfile('runtime/manifest.json'))
+            self.assertEqual({row['package'] for row in manifest['packages']}, {*tool.ROOTS, 'age'})
+            self.assertEqual(archive.extractfile('runtime/tools/age').read(), b'fixture age, never executed')
+
+    def test_pinned_runtime_metadata_parser_rejects_wrong_architecture_before_publication(self):
+        self.package_architecture = 'arm64'
+        with patch.object(subprocess, 'run', side_effect=AssertionError('host command attempted')), \
+             patch.object(subprocess, 'check_output', side_effect=AssertionError('host metadata command attempted')):
+            with self.assertRaisesRegex(tool.PreparationError, 'recovery_package_preparation_failed'):
+                tool.prepare(self.real_helpers(), self.real_helper_runner, self.temporary_stage)
+        self.assertEqual(self.publications, [])
+        self.assertIn('runtime_package_architecture', (self.stage / 'private.log').read_text())
 
     def test_success_is_download_simulation_then_publication_with_no_installs(self):
         result = self.prepare()

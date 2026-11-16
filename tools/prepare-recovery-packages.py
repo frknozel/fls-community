@@ -169,7 +169,7 @@ def prepare(modules=None, runner=subprocess.run, temporary=tempfile.mkdtemp):
                     return runner(['/usr/bin/' + command[0], *command[1:]],
                                   **{**options, 'env': online_environment, 'timeout': 1200})
                 # A module-local adapter leaves global subprocess and installed files untouched.
-                download.subprocess = types.SimpleNamespace(run=download_run)
+                download.subprocess = types.SimpleNamespace(run=download_run, STDOUT=subprocess.STDOUT)
                 with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
                     download.download_packages(stage, 'guest-debs', [*ROOTS, 'age'])
                     folder = stage / 'guest-debs'

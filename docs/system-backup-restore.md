@@ -77,6 +77,10 @@ yolunu saklayın. Başarılı hazırlıktan sonra kaynak panelde doğrulanmış 
 işlemiyle başlangıç kitini indirin. Yedek, kit ve varsa ayrı `age` anahtarı
 kurtarma hedefinde birlikte kullanılacaktır.
 
+Hazırlama aracı her denemede yeni, özel bir çalışma dizini kullanır. İndirme
+başlamadan oluşan bir araç hatasını düzeltmek için kaynak VM'yi yeniden kurmak
+gerekmez; güncellenmiş bağımsız araçla ön kontrol ve hazırlık tekrarlanabilir.
+
 Elle veya çevrimdışı hazırlık tercih ederseniz kaynakla uyumlu Ubuntu 24.04 amd64
 paketlerini, bütün gerekli `.deb` bağımlılıklarıyla birlikte güvenilir bir root
 dizininde toplayın. Paket listesini

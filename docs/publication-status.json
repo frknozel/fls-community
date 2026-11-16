@@ -110,8 +110,16 @@
     "available_in_public_source": true,
     "signed_rc6_assets_unchanged": true,
     "execution_host": "installed_community_rc6_source_vm",
-    "source_preparation_acceptance": "pending",
+    "source_preparation_acceptance": "retry_pending_after_downloader_adapter_fix",
     "independent_full_restore_acceptance": "pending",
-    "source_packages_installed": false
+    "source_packages_installed": false,
+    "source_read_only_plan": "user_confirmed",
+    "downloader_adapter_failure": {
+      "observed_code": "recovery_package_preparation_failed",
+      "root_cause": "missing_subprocess_stdout_adapter_constant",
+      "download_started": false,
+      "source_fix": "preserve_stdout_constant_in_module_local_adapter",
+      "fix_acceptance": "pending"
+    }
   }
 }
