@@ -9,7 +9,12 @@ Bu paket Ubuntu disk imajı değildir; açılış düzenini veya geçmiş loglar
 
 RC6'nın iki diskli kullanıcı VM'sinde yedek oluşturma ve indirme doğrulandı.
 Paylaşılan paketin dosya/kaynak hash'leri, logsuz SQL kapsamı ve imza/TLS anahtar
-eşleşmeleri salt okunur incelendi; ayrı hedefte tam kurtarma henüz yapılmadı.
+eşleşmeleri salt okunur incelendi. Aynı yedekle ayrı ve temiz Ubuntu 24.04 amd64
+VirtualBox hedefinde tek diskli kurtarma provası kullanıcı tarafından tamamlandı:
+sihirbaz `succeeded · complete` sonucunu verdi, yedekteki yönetici hesabıyla giriş
+yapıldı, üç prova servisi etkin ve başarısız birim sayısı sıfırdı. Log alıcısı ve
+indeksleyici maskeli kaldı; depolama yeni hedef kimliğiyle `system-root` olarak
+doğrulandı. Kurtarılan hedefin yeniden başlatma kontrolü henüz bekliyor.
 Bu RC6 yedeğinde fiziksel ana depo birimi `srv-fls\x2dstorage.mount` eksiktir;
 altı bind mount ve servis bağımlılıkları ise bulunur. Özgün hibrit düzeni bu
 paketten birebir yeniden kurma tamamlanmış bir kurtarma yöntemi değildir.
@@ -61,8 +66,8 @@ geliştirme kaynağında yayımlanır; imzalı RC6 kurulum paketine eklenmiş de
 
 RC6 kabul denemesinde bu araçla 173 paket ve yaklaşık 85 MiB çevrimdışı runtime
 hazırlanması kullanıcı tarafından doğrulandı. Kaynakta kurulu paketler, uygulama
-dosyaları ve servisler değiştirilmedi. Ayrı hedefte tam geri yükleme kabulü
-henüz tamamlanmadı.
+dosyaları ve servisler değiştirilmedi. Bu paketle ayrı VirtualBox hedefindeki
+tek diskli kurtarma provası tamamlandı; yeniden başlatma kabulü bekliyor.
 
 Araç yalnız **kurulu Community v0.76.0-rc.6** kaynağını kabul eder; sürüm makbuzunu,
 kaynak envanterini ve kullandığı yardımcıların hash'lerini doğrular. Aracı
@@ -160,10 +165,16 @@ hedefe log yönlendirmeyin.
    Başlatmak için `TAMAM` yazıp **Prova geri yüklemesini başlat** düğmesine basın.
    Aynı kaynağa geri yükleme reddedilir. Eski ağ, açılış, `fstab` ve HDD bağlantıları
    yeni donanıma körlemesine uygulanmaz; tek disk kimliği hedefe göre hazırlanır.
+   `running · packages` aşaması paketler kurulurken birkaç dakika sürebilir.
+   Bu sırada yükleme ve başlatma düğmelerinin kapalı kalması normaldir;
+   **Durumu yeniden oku** ile ilerlemeyi kontrol edin.
 7. Başarılı sonuçtaki prova arayüzü bağlantısını açın. Bu ayrı HTTPS arayüzü
    `8443` portundadır ve hedefe ait yeni sertifika kullanır. Yedekteki yönetici
-   hesabıyla kullanıcıları, cihazları, ayarları ve sürümü denetleyin. Log geçmişinin
-   boş olması beklenir.
+   hesabı ve kaynakta yedek alınırken geçerli olan parolayla giriş yapın;
+   kullanıcıları, cihazları, ayarları ve sürümü denetleyin. Log geçmişinin boş
+   olması beklenir. `8444` kurtarma sihirbazıdır; `8443` geri yüklenen FLS prova
+   arayüzüdür. Yeniden başlatma sonrası sihirbazın kapanması beklenir;
+   etkinleştirilen `fls-rehearsal-web` servisi prova arayüzünü sunmaya devam eder.
 
 ## Geri yükleme sonrasında kapalı kalan işler
 

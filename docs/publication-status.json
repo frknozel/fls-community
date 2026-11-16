@@ -15,7 +15,7 @@
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
     "independent_ingestion_queue_error_and_data_completeness_acceptance",
-    "independent_full_restore_acceptance",
+    "independent_single_disk_restore_reboot_acceptance",
     "optional_provider_sdk_setup_and_acceptance",
     "independent_missing_depot_fail_closed_acceptance"
   ],
@@ -55,7 +55,7 @@
     "queue_and_write_error_acceptance": "pending",
     "ingestion_data_completeness": "pending",
     "second_disk_migration_and_reboot": "user_confirmed",
-    "full_restore": "pending",
+    "full_restore": "user_confirmed_single_disk_rehearsal",
     "second_disk_migration": "user_confirmed_panel_completed",
     "post_migration_storage_validation": "user_confirmed_read_only_hybrid_system_queue",
     "post_migration_operational_bind_mounts": "user_confirmed_six_ext4_bind_paths",
@@ -71,7 +71,8 @@
     "uploaded_backup_sql_scope": "passed_read_only_inspection",
     "uploaded_backup_signing_and_tls_key_pairs": "passed_read_only_inspection",
     "uploaded_backup_hybrid_mount_metadata": "physical_depot_mount_unit_missing",
-    "single_disk_restore_contract_review": "passed_static_review_full_restore_pending"
+    "single_disk_restore_contract_review": "passed_static_review_and_user_confirmed_rehearsal",
+    "single_disk_restore_reboot": "pending"
   },
   "previous_candidate_vm_checks": {
     "release_tag": "v0.76.0-rc.5",
@@ -104,14 +105,14 @@
     "source_fix": "include_depot_unit_in_future_backup_scope",
     "release_fix_status": "unreleased_source_only",
     "current_signed_assets_unchanged": true,
-    "full_restore_acceptance": "pending"
+    "full_restore_acceptance": "user_confirmed_single_disk_rehearsal_only"
   },
   "recovery_package_preparation": {
     "available_in_public_source": true,
     "signed_rc6_assets_unchanged": true,
     "execution_host": "installed_community_rc6_source_vm",
     "source_preparation_acceptance": "user_confirmed_prepared",
-    "independent_full_restore_acceptance": "pending",
+    "independent_full_restore_acceptance": "user_confirmed_single_disk_rehearsal",
     "source_packages_installed": false,
     "source_read_only_plan": "user_confirmed",
     "downloader_adapter_failure": {
@@ -125,5 +126,20 @@
     "prepared_runtime_bytes": 89481189,
     "source_application_files_changed": false,
     "source_services_changed": false
+  },
+  "independent_single_disk_restore_acceptance": {
+    "source_release_tag": "v0.76.0-rc.6",
+    "source_storage": "two_disk_hybrid",
+    "target_profile": "separate_clean_virtualbox_ubuntu_24_04_amd64_plain_ext4",
+    "target_disk_gib": 25,
+    "target_initial_free_gib": 16,
+    "execution": "user_performed",
+    "wizard_result": "user_confirmed_succeeded_complete",
+    "restored_administrator_login": "user_confirmed_source_backup_credentials",
+    "service_health": "user_confirmed_mariadb_php83_fpm_rehearsal_web_active_zero_failed",
+    "ingestion_services": "user_confirmed_collector_and_indexer_masked",
+    "storage": "user_confirmed_system_root_new_target_identity",
+    "reboot_acceptance": "pending",
+    "production_activation": "not_performed"
   }
 }
