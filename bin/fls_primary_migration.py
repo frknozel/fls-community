@@ -33,6 +33,7 @@ SCOPE = (
 UNIT = re.compile(r'(?:fls|fortigate)-[A-Za-z0-9@_.:-]+\.(?:service|timer)\Z')
 KEEP = {'fls-disk-management.service', 'fls-disk-management.timer', 'fls-rehearsal-web.service'}
 RESERVE = 1024**3
+SCAFFOLD = ('FLS-Logs', 'FLS-Backups')
 
 
 def require(value, code):
@@ -98,6 +99,77 @@ class MigrationJournal:
         self.value.update(details)
         self.value['steps'].append({'phase': phase, 'at_utc': datetime.now(timezone.utc).isoformat()})
         atomic(self.path, self.value, owner=self.owner)
+
+
+    def command(self, summary, *, status='started', exit_code=None):
+        require(self.value is not None, 'migration_journal_missing')
+        record = dict(summary, status=status)
+        if exit_code is not None:
+            require(type(exit_code) is int, 'migration_command_result_invalid')
+            record['exit_code'] = exit_code
+        self.value['last_command'] = record
+        atomic(self.path, self.value, owner=self.owner)
+
+
+def prepare_scaffold(folder, device, *, owner=0):
+    """Create only the two fresh, shared lookup parents; preserve every leaf.
+
+    The root worker uses umask 0077. Implicit mkdir(parents=True) would therefore
+    make these parents 0700, preventing the collector's non-root storage guard
+    from stat'ing its bind-source directories. Search permission is required;
+    private backup/dump leaves and their ACLs are copied without modification.
+    """
+    folder = Path(folder)
+    info = folder.lstat()
+    require(folder.resolve(strict=True) == folder and stat.S_ISDIR(info.st_mode)
+            and info.st_uid == owner and not info.st_mode & 0o022 and info.st_dev == device,
+            'migration_scaffold_parent_unsafe')
+    parent = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        opened = os.fstat(parent)
+        require((opened.st_dev, opened.st_ino) == (info.st_dev, info.st_ino)
+                and opened.st_uid == owner and not opened.st_mode & 0o022,
+                'migration_scaffold_parent_changed')
+        for name in SCAFFOLD:
+            try:
+                os.mkdir(name, mode=0o711, dir_fd=parent)
+            except FileExistsError:
+                raise DiskOpsError('migration_scaffold_not_pristine') from None
+            descriptor = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                                 dir_fd=parent)
+            try:
+                current = os.fstat(descriptor)
+                require(current.st_uid == owner and current.st_dev == device
+                        and not current.st_mode & 0o022, 'migration_scaffold_unsafe')
+                # The exact mode is intentional and independent of umask/ACL
+                # masks. Only a newly-created, empty parent is changed here.
+                os.fchmod(descriptor, 0o711)
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        os.fsync(parent)
+    finally:
+        os.close(parent)
+
+
+def command_summary(arguments):
+    """Journal only fixed operations and safe unit names, never argv/output."""
+    tool = Path(arguments[0]).name
+    operations = {'systemctl': set(('list-unit-files','list-units','show','stop','start','enable','daemon-reload')),
+                  'udevadm': {'settle','trigger'}}
+    fixed = {'sfdisk':'partition', 'mkfs.ext4':'format', 'blkid':'filesystem_probe',
+             'mount':'mount', 'rsync':'copy', 'sync':'flush', 'systemd-escape':'escape',
+             'systemd-run':'storage_probe'}
+    value = {'tool': tool if tool in operations or tool in fixed else 'other',
+             'operation': arguments[1] if tool in operations and len(arguments) > 1
+                          and arguments[1] in operations[tool] else fixed.get(tool,'other')}
+    if tool == 'systemctl' and value['operation'] in ('show','stop','start','enable'):
+        for argument in arguments[2:]:
+            if (isinstance(argument,str) and len(argument) <= 255 and
+                (UNIT.fullmatch(argument) or re.fullmatch(r'(?:[A-Za-z0-9_.@:-]|\\x[0-9a-f]{2})+\.mount', argument))):
+                value['unit'] = argument
+                break
+    return value
 
 
 def _metadata(path):
@@ -231,8 +303,19 @@ class LinuxMigration:
 
     def command(self, args, **kwargs):
         self.guard()
-        result = self.runner(args, capture_output=True, text=True, check=False,
-                             timeout=kwargs.pop('timeout', 120), **kwargs)
+        summary = command_summary(args)
+        self.journal.command(summary)
+        try:
+            result = self.runner(args, capture_output=True, text=True, check=False,
+                                 timeout=kwargs.pop('timeout', 120), **kwargs)
+        except subprocess.TimeoutExpired:
+            self.journal.command(summary, status='timeout')
+            raise DiskOpsError('migration_command_timeout') from None
+        except OSError:
+            self.journal.command(summary, status='unavailable')
+            raise DiskOpsError('migration_command_unavailable') from None
+        self.journal.command(summary, status='succeeded' if result.returncode == 0 else 'failed',
+                             exit_code=result.returncode)
         require(result.returncode == 0, 'migration_command_failed')
         return result.stdout
 
@@ -381,11 +464,12 @@ class LinuxMigration:
         free = os.statvfs(DEPOT)
         require(free.f_bavail * free.f_frsize >= used + RESERVE, 'primary_usable_capacity_too_small')
         root_device = Path('/').stat().st_dev
+        prepare_scaffold(DEPOT, target['device'])
         with ExitStack() as held:
             descriptors = []
             for source, relative in SCOPE:
                 left, right = Path(source), DEPOT / relative
-                right.mkdir(mode=0o700, parents=True, exist_ok=True)
+                right.mkdir(mode=0o700)
                 for path, device in ((left, root_device), (right, target['device'])):
                     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
                     held.callback(os.close, fd)
@@ -496,10 +580,13 @@ class LinuxMigration:
         root = Path('/').stat().st_dev
         require(all(Path(name).stat().st_dev == root for name in
                     ('/srv/fls-server/database/mysql', '/srv/fls-server/queue')), 'migration_system_data_moved')
-        # Run the same guard in an actual systemd namespace, with block devices
-        # hidden as they are for the collector and other sandboxed services.
+        # Validate as the actual collector identity before lifting the pause. A
+        # root-only probe misses non-searchable parent directories on the depot.
         self.command(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect',
-                      '--property=PrivateDevices=yes', '--property=ProtectSystem=strict',
+                      '--property=User=syslog', '--property=Group=adm',
+                      '--property=NoNewPrivileges=yes', '--property=PrivateDevices=yes',
+                      '--property=ProtectSystem=strict', '--property=ProtectHome=yes',
+                      '--property=ReadWritePaths=/srv/fls-server/raw /srv/fls-server/queue /srv/fls-server/metrics',
                       '/usr/bin/python3', '/var/www/fls/bin/fls_storage.py'])
 
     def resume(self):

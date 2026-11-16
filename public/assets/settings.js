@@ -111,8 +111,14 @@ async function managementToggleCredential(key,button){
  finally{managementSaving=false;if(button.isConnected)button.disabled=false;}
 }
 function renderManagement(data){
- managementData=data;const root=$('#settings-content');
+ const previous=managementData;managementData=data;const root=$('#settings-content');
  const profile=`<section class="panel management-account"><div><h2>${esc(data.user.display_name||data.user.username)}</h2><p>${esc(data.user.username)} · ${data.admin?'Yönetici':'Analist'}</p></div><a class="button" href="/?account=1">Parolamı değiştir</a></section>`;
+ // The disk controller owns its mounted panel and polls jobs independently.
+ // Replacing its ancestors closes details, resets scroll and interrupts previews.
+ if(data.admin&&previous?.admin&&state.view==='settings'&&state.settingsTab==='storage'&&root.querySelector('#settings-tab-storage[aria-selected="true"]')&&root.querySelector('#management-storage:not([hidden]) #disk-management-root')){
+  const account=root.querySelector('.management-account');if(account&&account.outerHTML!==profile)account.outerHTML=profile;
+  return;
+ }
  if(!data.admin){root.innerHTML=profile+'<div class="info-strip"><p>Cihaz, API anahtarı ve kullanıcı yönetimi yönetici yetkisi gerektirir.</p></div>';return;}
  const tab=Object.hasOwn(managementSectionInfo,state.settingsTab)?state.settingsTab:'connections',tabs={connections:'FortiGate’ler ve API anahtarları',users:'Kullanıcı hesapları',archive:'Arşiv ve yedekleme',storage:'Disk ve depolama',product:'Ürün ve saklama'};
  root.innerHTML=profile+`<div class="workspace-tabs management-section-tabs" role="tablist" aria-label="Ayar bölümü">${Object.entries(tabs).map(([key,label])=>`<button type="button" role="tab" id="settings-tab-${key}" aria-controls="management-${key}" data-settings-tab="${key}" tabindex="${tab===key?0:-1}" aria-selected="${tab===key}" aria-label="${esc(label)}"><span>${esc(label)}</span><small>${esc(managementSectionInfo[key].description)}</small></button>`).join('')}</div><aside class="management-section-context" aria-label="Bölüm kapsamı"><span class="soft-tag">${esc(managementSectionInfo[tab].scope)}</span><p>${esc(managementSectionInfo[tab].detail)}</p></aside><div id="management-connections" role="tabpanel" aria-labelledby="settings-tab-connections" ${tab!=='connections'?'hidden':''}>${managementConnectionsPanel(data)}</div><div id="management-users" role="tabpanel" aria-labelledby="settings-tab-users" ${tab!=='users'?'hidden':''}>${managementUsersPanel(data)}</div><div id="management-archive" role="tabpanel" aria-labelledby="settings-tab-archive" ${tab!=='archive'?'hidden':''}><div class="archive-management-root">Yükleniyor…</div></div><div id="management-storage" role="tabpanel" aria-labelledby="settings-tab-storage" ${tab!=='storage'?'hidden':''}><div id="disk-management-root"></div></div><div id="management-product" role="tabpanel" aria-labelledby="settings-tab-product" ${tab!=='product'?'hidden':''}><div id="product-settings-content">Yükleniyor…</div></div>`;
@@ -122,7 +128,7 @@ function renderManagement(data){
  if(tab==='archive')managementLoadArchive(root.querySelector('.archive-management-root'));
  if(tab==='storage'&&typeof window.flsDiskManagementMount==='function')window.flsDiskManagementMount(root.querySelector('#disk-management-root'));
  root.querySelectorAll('[data-settings-tab]').forEach(button=>{
-  button.onclick=()=>{if(managementSaving||onboardingBusy)return;state.settingsTab=button.dataset.settingsTab;syncUrl('push');renderManagement(data);root.querySelector('[data-settings-tab="'+state.settingsTab+'"]').focus();};
+  button.onclick=()=>{if(managementSaving||onboardingBusy)return;state.settingsTab=button.dataset.settingsTab;syncUrl('push');renderManagement(managementData);root.querySelector('[data-settings-tab="'+state.settingsTab+'"]').focus();};
   button.onkeydown=event=>managementTabKey(event,root,'[data-settings-tab]',button);
  });
  root.querySelector('[data-manage-device-access]')?.addEventListener('click',()=>root.querySelector('[data-settings-tab=users]').click());

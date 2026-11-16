@@ -2,7 +2,7 @@
   "schema": 1,
   "edition": "community",
   "version": "0.76.0",
-  "release_tag": "v0.76.0-rc.5",
+  "release_tag": "v0.76.0-rc.6",
   "license": "Apache-2.0",
   "stage": "release-candidate-partial-independent-vm-acceptance",
   "automatic_installation_available": true,
@@ -14,7 +14,7 @@
   "collector_binary_distributed": "signed-release-asset",
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
-    "independent_rc5_reboot_and_intake_continuity_acceptance",
+    "independent_rc6_reboot_and_intake_continuity_acceptance",
     "independent_ingestion_queue_error_and_data_completeness_acceptance",
     "independent_second_disk_migration_and_reboot_acceptance",
     "independent_full_restore_acceptance",
@@ -39,7 +39,7 @@
   },
   "checks_updated_on": "2026-11-16",
   "independent_vm_checks_release_tag": "v0.76.0-rc.4",
-  "latest_candidate_clean_vm_acceptance": "partial_user_confirmed",
+  "latest_candidate_clean_vm_acceptance": "pending",
   "system_backup_create_failure": {
     "release_tag": "v0.76.0-rc.4",
     "code": "recovery_document_missing",
@@ -48,6 +48,17 @@
     "fix_acceptance": "user_confirmed_create_and_download"
   },
   "latest_candidate_vm_checks": {
+    "release_tag": "v0.76.0-rc.6",
+    "clean_install": "pending",
+    "real_fortigate_log_ingestion": "pending",
+    "system_backup_create_and_download": "pending",
+    "reboot_and_intake_continuity": "pending",
+    "queue_and_write_error_acceptance": "pending",
+    "ingestion_data_completeness": "pending",
+    "second_disk_migration_and_reboot": "pending",
+    "full_restore": "pending"
+  },
+  "previous_candidate_vm_checks": {
     "release_tag": "v0.76.0-rc.5",
     "clean_install": "user_confirmed",
     "real_fortigate_log_ingestion": "user_confirmed",
@@ -55,10 +66,19 @@
     "uploaded_backup_file_and_source_integrity": "passed_read_only_inspection",
     "uploaded_backup_sql_scope": "passed_read_only_inspection",
     "uploaded_backup_signing_and_tls_key_pairs": "passed_read_only_inspection",
-    "reboot_and_intake_continuity": "pending",
+    "reboot_and_intake_continuity": "user_confirmed",
     "queue_and_write_error_acceptance": "pending",
     "ingestion_data_completeness": "pending",
-    "second_disk_migration_and_reboot": "pending",
+    "second_disk_migration_and_reboot": "migration_failed_user_confirmed",
     "full_restore": "pending"
+  },
+  "primary_migration_failure": {
+    "release_tag": "v0.76.0-rc.5",
+    "phase": "resuming",
+    "code": "migration_command_failed",
+    "root_cause": "depot_parent_search_permissions",
+    "status": "user_confirmed",
+    "fix_release": "v0.76.0-rc.6",
+    "fix_acceptance": "pending"
   }
 }

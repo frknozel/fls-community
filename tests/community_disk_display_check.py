@@ -23,7 +23,7 @@ def render(version,assets=None):
     badge=re.search(r'<span class="beta">.*?</span>',INDEX).group(0)
     footer=re.search(r'<footer class="page-footer">.*?</footer>',INDEX).group(0)
     asset_tags=[re.search(r'<script src="/assets/'+re.escape(name)+r'\?v=.*?</script>',INDEX).group(0)
-                for name in ('disk-management.js','settings.js')]
+                for name in ('disk-management.js','settings.js','app.js')]
     with tempfile.TemporaryDirectory(prefix='fls-community-version-') as temporary:
         root=Path(temporary);public=root/'public';public.mkdir();(public/'assets').mkdir()
         if version is not None:(root/'VERSION').write_text(version)
@@ -76,7 +76,7 @@ class CommunityDiskDisplayTests(unittest.TestCase):
             self.assertNotIn('vSürüm',result.stdout)
 
     def test_changed_scripts_bust_cache_even_when_release_version_is_unchanged(self):
-        names=('disk-management.js','settings.js')
+        names=('disk-management.js','settings.js','app.js')
         first={name:'first '+name for name in names}
         second={name:'updated '+name for name in names}
         before=render('0.76.0',first).stdout;after=render('0.76.0',second).stdout

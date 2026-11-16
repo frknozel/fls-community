@@ -7,6 +7,8 @@
  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const names = {migrate:'Ana diske taşıma',prepare:'Eşleme diski hazırlama',sync:'Depo eşitleme'};
  const states = {queued:'Sırada',running:'Çalışıyor',succeeded:'Tamamlandı',failed:'Tamamlanamadı',rejected:'Reddedildi'};
+ const failureCode = value => typeof value==='string'&&/^[a-z0-9_]{1,64}$/.test(value)?value:'';
+ const terminalNotice = (job,prefix='İşlem') => job.status==='succeeded'?prefix+' tamamlandı.':prefix+' tamamlanamadı. Disk durumunu kontrol edin.'+(failureCode(job.error_code)?' Denetim kodu: '+failureCode(job.error_code)+'.':'');
  const reasons = {protected_disk:'Sistem ve ana depo diskleri korunur.',system_disk:'Sistem diski korunur.',depot_disk:'Ana depo diski korunur.',size_too_small:'Kapasitesi ana depo diskinden küçük.',too_small:'Kapasitesi ana depo diskinden küçük.',mounted:'Disk veya bir bölümü kullanımda.',disk_mounted:'Disk veya bir bölümü kullanımda.',swap_in_use:'Disk takas alanı olarak kullanılıyor.',active_holders:'Disk başka bir depolama biriminde kullanılıyor.',read_only:'Disk salt okunur.',identity_missing:'Disk kimliği doğrulanamadı.',in_use:'Disk kullanımda.'};
  let root=null,snapshot=null,observed=0,reading=false,writing=false,sequence=0,controller=null,lastRead=0,denied=false,pending=null,acknowledged=null,error='',notice='',dialog=null,preview=null,returnFocus=null,wasActive=false;
  const admin = () => !denied && document.documentElement.dataset.userRole === 'admin';
@@ -77,7 +79,7 @@
   find('disk-progress').hidden=!(busy()||workerBusy());
   find('disk-progress-text').textContent='İlk hazırlama ve kopyalama disklerdeki veri miktarına göre sürebilir.'+(percent!==null?' · %'+percent.toLocaleString('tr-TR',{maximumFractionDigits:1}):'');
   find('disk-progress-meter').removeAttribute('value');if(percent!==null)find('disk-progress-meter').value=percent;
-  put('disk-management-history',snapshot.jobs.length?'<table><thead><tr><th>İşlem</th><th>Durum</th><th>Disk</th><th>Sonuç zamanı</th></tr></thead><tbody>'+snapshot.jobs.slice(0,6).map(job=>'<tr><td>'+esc(names[job.action])+'</td><td>'+esc(states[job.status])+(job.error_code?'<small>İşlem tamamlanamadı; güncel disk durumunu kontrol edin.</small>':'')+'</td><td>'+esc(job.disk_serial||'—')+'</td><td>'+esc(time(job.completed_at||job.started_at||job.requested_at))+'</td></tr>').join('')+'</tbody></table>':'<p class="disk-empty">Henüz disk hazırlama veya elle eşitleme isteği yok.</p>');
+  put('disk-management-history',snapshot.jobs.length?'<table><thead><tr><th>İşlem</th><th>Durum</th><th>Disk</th><th>Sonuç zamanı</th></tr></thead><tbody>'+snapshot.jobs.slice(0,6).map(job=>'<tr><td>'+esc(names[job.action])+'</td><td>'+esc(states[job.status])+(job.error_code?'<small>İşlem tamamlanamadı; güncel disk durumunu kontrol edin.'+(failureCode(job.error_code)?' Denetim kodu: '+esc(failureCode(job.error_code))+'.':'')+'</small>':'')+'</td><td>'+esc(job.disk_serial||'—')+'</td><td>'+esc(time(job.completed_at||job.started_at||job.requested_at))+'</td></tr>').join('')+'</tbody></table>':'<p class="disk-empty">Henüz disk hazırlama veya elle eşitleme isteği yok.</p>');
   find('disk-management-checked').textContent='Envanter kontrolü: '+time(snapshot.checked_at);
   updateDialog();
  }
@@ -96,8 +98,8 @@
  function accept(value){
   if(!valid(value))throw new Error('Disk envanteri doğrulanamadı.');
   snapshot=value;observed=Date.now();
-  if(acknowledged){const job=value.jobs.find(job=>job.request_key===acknowledged.request_key);if(job)acknowledged=['queued','running'].includes(job.status)?job:null;}
-  if(pending){const job=value.jobs.find(job=>job.request_key===pending.request_key);if(job){acknowledged=['queued','running'].includes(job.status)?job:null;notice=job.status==='succeeded'?'Önceki işlem tamamlandı.':['failed','rejected'].includes(job.status)?'Önceki işlem tamamlanamadı. Disk durumunu kontrol edin.':'Önceki istek sunucuda bulundu; işlem devam ediyor.';persist(null);}}
+  if(acknowledged){const job=value.jobs.find(job=>job.request_key===acknowledged.request_key);if(job){acknowledged=['queued','running'].includes(job.status)?job:null;if(!acknowledged)notice=terminalNotice(job);}}
+  if(pending){const job=value.jobs.find(job=>job.request_key===pending.request_key);if(job){acknowledged=['queued','running'].includes(job.status)?job:null;notice=['succeeded','failed','rejected'].includes(job.status)?terminalNotice(job,'Önceki işlem'):'Önceki istek sunucuda bulundu; işlem devam ediyor.';persist(null);}}
   render();
  }
  async function body(response){
@@ -165,7 +167,7 @@
    const response=await fetch('/api.php?route='+(action==='migrate'?'prepare_primary_disk':action==='prepare'?'prepare_mirror_disk':'sync_mirror_disk'),{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':csrf},body:new URLSearchParams(values),signal:abort.signal}),value=await body(response);
    if(value.saved!==true||!validJob(value.job)||value.job.request_key!==descriptor.request_key||value.job.action!==action)throw new Error('İsteğin kaydedildiği doğrulanamadı.');
    acknowledged=['queued','running'].includes(value.job.status)?value.job:null;persist(null);
-   notice=value.job.status==='succeeded'?'İşlem tamamlandı.':['failed','rejected'].includes(value.job.status)?'Bu istek daha önce tamamlanamadı. Disk durumunu kontrol edin.':'İstek kaydedildi. İşlem sunucuda devam eder; bu sayfayı açık tutmanız gerekmez.';
+   notice=['succeeded','failed','rejected'].includes(value.job.status)?terminalNotice(value.job):'İstek kaydedildi. İşlem sunucuda devam eder; bu sayfayı açık tutmanız gerekmez.';
   }catch(failure){
    if(Number.isInteger(failure.status)&&failure.status>=400&&failure.status<500)persist(null);
    error=denied?'Yönetici oturumu doğrulanamadı. Sayfayı yeniden yükleyin.':pending?'İsteğin sonucu doğrulanamadı. Yeni disk silme isteği gönderilmez. Önce listeyi yenileyin; gerekirse aynı istek kimliğini denetleyin.':failure.message||'Disk işlemi tamamlanamadı.';

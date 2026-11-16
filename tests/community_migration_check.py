@@ -10,6 +10,9 @@ import datetime
 import importlib.util
 import json
 import os
+import pwd
+import stat
+import types
 from pathlib import Path
 import shutil
 import sqlite3
@@ -401,6 +404,147 @@ class LinuxAdapterTests(unittest.TestCase):
             self.assertNotIn('/srv/fortigate', path.read_text())
         dependency=self.folder/'etc/systemd/system/fls-indexer.service.d/91-fls-primary-dependencies.conf'
         self.assertIn('BindsTo=srv-fls',dependency.read_text());self.assertNotIn('/srv/fls-server/queue',dependency.read_text())
+
+    def test_collector_namespace_guard_runs_as_syslog_before_resume(self):
+        root=self.folder/'fixture-root';root.mkdir()
+        for name in ('database/mysql','queue'):(root/name).mkdir(parents=True)
+        original_path=Path
+        def mapped(value='.',*args):
+            path=original_path(value,*args)
+            if str(path)=='/':return root
+            if str(path).startswith('/srv/fls-server/'):
+                return root/path.relative_to('/srv/fls-server')
+            return path
+        with patch.object(migration,'Path',mapped),patch.object(migration,'storage_state',return_value={'mode':'hybrid','queue_location':'system'}):
+            self.adapter.validate()
+        probe=self.commands[-1]
+        self.assertEqual(probe[0],'/usr/bin/systemd-run')
+        for property in ('User=syslog','Group=adm','PrivateDevices=yes','ProtectSystem=strict'):
+            self.assertIn('--property='+property,probe)
+        self.assertIn('--property=ReadWritePaths=/srv/fls-server/raw /srv/fls-server/queue /srv/fls-server/metrics',probe)
+        self.assertFalse(self.journal.value.get('new_writes_possible'))
+
+    def test_failed_command_journals_safe_stage_and_exit_without_outputs(self):
+        self.journal.phase('resuming')
+        def denied(args,**kwargs):
+            record=json.loads(self.journal.path.read_text())
+            self.assertEqual(record['last_command']['status'],'started')
+            return types.SimpleNamespace(returncode=1,stdout='fixture-private-output',stderr='fixture-secret-error')
+        self.adapter.runner=denied
+        with self.assertRaisesRegex(ops.DiskOpsError,'migration_command_failed'):
+            self.adapter.command(['/usr/bin/systemctl','start','fortigate-collector.service'])
+        record=json.loads(self.journal.path.read_text())
+        self.assertEqual(record['phase'],'resuming')
+        self.assertEqual(record['last_command'],{'tool':'systemctl','operation':'start','unit':'fortigate-collector.service','status':'failed','exit_code':1})
+        self.assertNotIn('fixture-private-output',self.journal.path.read_text())
+        self.assertNotIn('fixture-secret-error',self.journal.path.read_text())
+
+    def test_timeout_records_tool_without_raw_command_or_exception(self):
+        def expired(args,**kwargs):raise subprocess.TimeoutExpired(['fixture-secret-argument'],1,output='fixture-private-output')
+        self.adapter.runner=expired
+        with self.assertRaisesRegex(ops.DiskOpsError,'migration_command_timeout'):
+            self.adapter.command(['/usr/bin/systemd-run','--property=User=syslog','/usr/bin/python3','/var/www/fls/bin/fls_storage.py'])
+        self.assertEqual(self.journal.value['last_command'],{'tool':'systemd-run','operation':'storage_probe','status':'timeout'})
+        self.assertNotIn('fixture-secret',self.journal.path.read_text())
+
+
+class ScaffoldPermissionTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary=tempfile.TemporaryDirectory(prefix='fls-community-scaffold-')
+        self.addCleanup(self.temporary.cleanup)
+        self.folder=Path(self.temporary.name)
+
+    def test_umask_does_not_remove_search_permission_or_change_private_leaves(self):
+        depot=self.folder/'depot';depot.mkdir();depot.chmod(0o755)
+        previous=os.umask(0o077)
+        try:migration.prepare_scaffold(depot,depot.stat().st_dev,owner=os.geteuid())
+        finally:os.umask(previous)
+        for name in migration.SCAFFOLD:
+            self.assertEqual(stat.S_IMODE((depot/name).stat().st_mode),0o711)
+        private=depot/'FLS-Backups/staging';private.mkdir(mode=0o700)
+        secret=private/'fixture-backup';secret.write_bytes(b'fixture-only');secret.chmod(0o600)
+        before=(private.stat().st_mode,secret.stat().st_mode,secret.read_bytes())
+        with self.assertRaisesRegex(ops.DiskOpsError,'migration_scaffold_not_pristine'):
+            migration.prepare_scaffold(depot,depot.stat().st_dev,owner=os.geteuid())
+        self.assertEqual(before,(private.stat().st_mode,secret.stat().st_mode,secret.read_bytes()))
+
+    def test_redirected_or_wrong_device_scaffold_is_rejected(self):
+        depot=self.folder/'depot';depot.mkdir();depot.chmod(0o755)
+        with self.assertRaisesRegex(ops.DiskOpsError,'migration_scaffold_parent_unsafe'):
+            migration.prepare_scaffold(depot,depot.stat().st_dev+1,owner=os.geteuid())
+        redirected=self.folder/'redirect';redirected.symlink_to(depot,target_is_directory=True)
+        with self.assertRaisesRegex(ops.DiskOpsError,'migration_scaffold_parent_unsafe'):
+            migration.prepare_scaffold(redirected,depot.stat().st_dev,owner=os.geteuid())
+        self.assertEqual(list(depot.iterdir()),[])
+
+    @unittest.skipUnless(os.geteuid()==0 and hasattr(os,'fork'),'Requires root only to drop a disposable fixture child to nobody')
+    def test_actual_hybrid_guard_as_nobody_reproduces_old_parent_and_accepts_fixed_scaffold(self):
+        import fls_storage as storage
+        nobody=pwd.getpwnam('nobody')
+        # CI intentionally nests TMPDIR under private root-only directories.
+        # Give only this disposable Unix-permission fixture a searchable root
+        # directly under /tmp; never relax the CI workspace or its ancestors.
+        traversable=tempfile.TemporaryDirectory(prefix='fls-community-unprivileged-',dir='/tmp')
+        self.addCleanup(traversable.cleanup)
+        folder=Path(traversable.name);folder.chmod(0o711)
+        scopes=(('raw','FLS-Logs/raw'),('archive','FLS-Logs/archive'),('metrics','FLS-Logs/metrics'),
+                ('backups','FLS-Backups/staging'),('published','FLS-Backups/published'),('db-dumps','DB-Dump'))
+        for fixed in (False,True):
+            with self.subTest(fixed=fixed):
+                base=folder/('fixed' if fixed else 'old');base.mkdir();base.chmod(0o711)
+                depot=base/'depot';depot.mkdir();depot.chmod(0o755)
+                data=base/'data';data.mkdir();data.chmod(0o755)
+                previous=os.umask(0o077)
+                try:
+                    if fixed:migration.prepare_scaffold(depot,depot.stat().st_dev)
+                    for name,relative in scopes:
+                        (depot/relative).mkdir(mode=0o700,parents=True)
+                        (data/name).mkdir(mode=0o700)
+                finally:os.umask(previous)
+                private=depot/'DB-Dump/fixture-private';private.write_bytes(b'fixture-only');private.chmod(0o600)
+                leaves_before={relative:stat.S_IMODE((depot/relative).stat().st_mode) for _,relative in scopes}
+                projected={str(data/name):(depot/relative).stat().st_ino for name,relative in scopes}
+                points={str(depot):{'device':'fixture-depot','root':'/'}}
+                points.update({str(data/name):{'device':'fixture-depot','root':'/'+relative} for name,relative in scopes})
+                config=dict(SOURCE,mode='hybrid',depot_uuid='7b762ad7-1e87-4f61-ade4-7289816cfaae',
+                            depot_identity=DISK['physical_identity'],depot_path=str(depot),queue_location='system')
+                read_end,write_end=os.pipe();process=os.fork()
+                if process==0:
+                    os.close(read_end)
+                    result={}
+                    try:
+                        original_directory=storage.directory
+                        def directory(path,*args,**kwargs):
+                            info=original_directory(path,*args,**kwargs)
+                            return types.SimpleNamespace(st_dev=info.st_dev,st_ino=projected.get(str(path),info.st_ino))
+                        # Only block/mount identities and queue ownership are synthetic.
+                        # The real hybrid guard and all its directory permission reads run
+                        # under the disposable child's actual unprivileged Unix UID.
+                        storage.DEPOT=depot;storage.DATA=data;storage.PUBLISHED=data/'published';storage.DUMPS=data/'db-dumps'
+                        storage.directory=directory
+                        storage.filesystem_identity=lambda *args:('fixture-depot',Path('fixture-depot-disk'))
+                        storage.mount_points=lambda *args:points
+                        storage.system_queue=lambda *args:None
+                        result['stage']='setgroups';os.setgroups([])
+                        result['stage']='setgid';os.setgid(nobody.pw_gid)
+                        result['stage']='setuid';os.setuid(nobody.pw_uid)
+                        result.pop('stage',None)
+                        try:
+                            value=storage.hybrid_state(config,types.SimpleNamespace(st_dev=-1),'fixture-system',Path('fixture-system-disk'))
+                            result['guard']=value['mode']
+                        except PermissionError:result['guard']='permission_denied'
+                        try:private.read_bytes();result['private_readable']=True
+                        except PermissionError:result['private_readable']=False
+                    except BaseException as error:result={'unexpected_error':type(error).__name__,'stage':result.get('stage','probe')}
+                    os.write(write_end,json.dumps(result).encode());os.close(write_end);os._exit(0)
+                os.close(write_end);payload=os.read(read_end,65536);os.close(read_end)
+                _,status=os.waitpid(process,0);self.assertEqual(status,0)
+                result=json.loads(payload)
+                if result.get('unexpected_error')=='PermissionError' and result.get('stage') in ('setgroups','setgid','setuid'):
+                    self.skipTest('Sandbox denies disposable UID drop; rerun this fixture with elevated test permissions')
+                self.assertEqual(result,{'guard':'hybrid' if fixed else 'permission_denied','private_readable':False})
+                self.assertEqual(leaves_before,{relative:stat.S_IMODE((depot/relative).stat().st_mode) for _,relative in scopes})
+
 
 
 class WorkerContractTests(unittest.TestCase):
