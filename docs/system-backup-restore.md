@@ -18,6 +18,7 @@ doğrulandı. Yeniden başlatma sonrasında da `8443` prova paneline giriş yap�
 aynı üç servis etkin, başarısız birim sayısı sıfır, log alıcısı ve indeksleyici
 maskeliydi. Depolama aynı hedef kimliğiyle `system-root` kaldı. Kullanıcı ve cihaz
 ayarları korundu, geçmiş loglar boş ve log alımı duraklatılmış durumdaydı.
+Kullanıcı bu başarılı kurtarma noktasını ayrı bir VM snapshot'ıyla sakladı.
 Bu RC6 yedeğinde fiziksel ana depo birimi `srv-fls\x2dstorage.mount` eksiktir;
 altı bind mount ve servis bağımlılıkları ise bulunur. Özgün hibrit düzeni bu
 paketten birebir yeniden kurma tamamlanmış bir kurtarma yöntemi değildir.

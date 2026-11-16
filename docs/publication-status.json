@@ -149,7 +149,8 @@
     "post_reboot_storage": "user_confirmed_same_target_identity_system_root",
     "restored_configuration": "user_confirmed_users_and_device_settings_present",
     "historical_logs": "user_confirmed_absent",
-    "collection": "user_confirmed_paused"
+    "collection": "user_confirmed_paused",
+    "post_reboot_working_snapshot": "user_confirmed_saved"
   },
   "rehearsal_ui_followup": {
     "observed_release_tag": "v0.76.0-rc.6",
