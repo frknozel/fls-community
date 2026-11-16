@@ -61,6 +61,40 @@ class RuntimeFixtures(unittest.TestCase):
         self.assertEqual(set(backup.HDD_BIND_UNITS), expected)
         self.assertEqual(backup.HDD_DEPOT_UNIT, r'srv-fls\x2dstorage.mount')
 
+    def test_backup_keeps_depot_and_six_operational_binds_as_configuration_evidence(self):
+        units = self.root / 'etc/systemd/system'
+        units.mkdir(parents=True)
+        # The six current binds plus optional legacy queue/mirror definitions
+        # are evidence in a backup; single-disk recovery does not install them.
+        for name in (*backup.HDD_BIND_UNITS, backup.HDD_DEPOT_UNIT,
+                     'unrelated.mount', 'unrelated.service'):
+            (units / name).write_text('[Unit]\nDescription=fixture only\n')
+        for name in backup.REQUIRED_FILES:
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'fixture only\n')
+        dropin = self.root / backup.HDD_DEVICE_DROPIN
+        dropin.parent.mkdir(parents=True)
+        dropin.write_text('[Unit]\nBindsTo=fixture.device\n')
+        unrelated_dropin = units / 'unrelated.mount.d/device-bound.conf'
+        unrelated_dropin.parent.mkdir()
+        unrelated_dropin.write_text('[Unit]\nDescription=unrelated fixture\n')
+
+        def fixture_path(value):
+            logical = Path(value)
+            return self.root / (logical.relative_to('/') if logical.is_absolute() else logical)
+
+        with patch.object(backup, 'Path', side_effect=fixture_path):
+            selected = backup.included_paths()
+            for name in (*backup.HDD_BIND_UNITS, backup.HDD_DEPOT_UNIT):
+                self.assertIn(str(units / name).lstrip('/'), selected)
+            self.assertIn(backup.HDD_DEVICE_DROPIN, selected)
+            for name in ('unrelated.mount', 'unrelated.service',
+                         'unrelated.mount.d/device-bound.conf'):
+                self.assertNotIn(str(units / name).lstrip('/'), selected)
+            dropin.unlink()
+            self.assertNotIn(backup.HDD_DEVICE_DROPIN, backup.included_paths())
+
     @contextlib.contextmanager
     def disk(self, identity='serial'):
         udev = self.root / 'udev'; udev.mkdir()

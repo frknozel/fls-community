@@ -7,6 +7,18 @@ alınır. Ham loglar, olaylar, geçmiş raporlar, arşivler, zaman damgası kan�
 alıcı kuyruğu, oturumlar, önbellekler ve eski yedek dosyaları bu pakette yoktur.
 Bu paket Ubuntu disk imajı değildir; açılış düzenini veya geçmiş logları kurtarmaz.
 
+RC6'nın iki diskli kullanıcı VM'sinde yedek oluşturma ve indirme doğrulandı.
+Paylaşılan paketin dosya/kaynak hash'leri, logsuz SQL kapsamı ve imza/TLS anahtar
+eşleşmeleri salt okunur incelendi; ayrı hedefte tam kurtarma henüz yapılmadı.
+Bu RC6 yedeğinde fiziksel ana depo birimi `srv-fls\x2dstorage.mount` eksiktir;
+altı bind mount ve servis bağımlılıkları ise bulunur. Özgün hibrit düzeni bu
+paketten birebir yeniden kurma tamamlanmış bir kurtarma yöntemi değildir.
+Aşağıdaki tek diskli prova motoru eski mount'ları ve HDD bağımlılıklarını
+yüklemez; hedef kimliğiyle yeni `system-root` düzeni oluşturur. Dolayısıyla bu
+eksik, desteklenen tek diskli prova akışını engellemez. Geliştirme kaynağındaki
+kapsam düzeltmesi ana depo birimini sonraki yedekler için de seçer; mevcut
+imzalı RC6 kurulum paketi ve alınmış yedek bu kaynak güncellemesiyle değişmez.
+
 ## Yedeği oluşturma ve dışarıda saklama
 
 1. Yönetici olarak **Ayarlar → Arşiv ve Yedekleme → FLS System Backup** düğmesine

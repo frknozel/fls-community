@@ -217,7 +217,7 @@ def included_paths():
     for path in sorted(units.iterdir()):
         if path.name.startswith(('fls-', 'fortigate-')) or path.name in (
                 'mariadb.service.d', 'php8.3-fpm.service.d', 'nginx.service.d',
-                *HDD_BIND_UNITS):
+                HDD_DEPOT_UNIT, *HDD_BIND_UNITS):
             paths.append(str(path).lstrip('/'))
     # Include this deployment's storage dependencies even when installed on a
     # consumer outside the usual FLS/PHP service-name allowlist. Do not collect

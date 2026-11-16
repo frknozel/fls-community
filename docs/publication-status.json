@@ -14,7 +14,6 @@
   "collector_binary_distributed": "signed-release-asset",
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
-    "independent_rc6_system_backup_create_and_download_acceptance",
     "independent_ingestion_queue_error_and_data_completeness_acceptance",
     "independent_full_restore_acceptance",
     "optional_provider_sdk_setup_and_acceptance",
@@ -51,7 +50,7 @@
     "release_tag": "v0.76.0-rc.6",
     "clean_install": "user_confirmed",
     "real_fortigate_log_ingestion": "user_confirmed",
-    "system_backup_create_and_download": "pending",
+    "system_backup_create_and_download": "user_confirmed_after_storage_migration",
     "reboot_and_intake_continuity": "user_confirmed_after_storage_migration",
     "queue_and_write_error_acceptance": "pending",
     "ingestion_data_completeness": "pending",
@@ -66,7 +65,13 @@
     "post_migration_reboot_service_health": "user_confirmed_five_active_zero_failed",
     "post_migration_collector_identity_storage_validation": "user_confirmed_syslog_adm_hybrid_system_queue",
     "post_migration_reboot_bind_mounts": "user_confirmed_six_ext4_bind_paths",
-    "missing_depot_fail_closed": "pending"
+    "missing_depot_fail_closed": "pending",
+    "two_disk_working_snapshot": "user_confirmed",
+    "uploaded_backup_file_and_source_integrity": "passed_read_only_inspection",
+    "uploaded_backup_sql_scope": "passed_read_only_inspection",
+    "uploaded_backup_signing_and_tls_key_pairs": "passed_read_only_inspection",
+    "uploaded_backup_hybrid_mount_metadata": "physical_depot_mount_unit_missing",
+    "single_disk_restore_contract_review": "passed_static_review_full_restore_pending"
   },
   "previous_candidate_vm_checks": {
     "release_tag": "v0.76.0-rc.5",
@@ -90,5 +95,15 @@
     "status": "user_confirmed",
     "fix_release": "v0.76.0-rc.6",
     "fix_acceptance": "user_confirmed_rc6_migration_completed"
+  },
+  "backup_scope_followup": {
+    "finding_code": "physical_depot_mount_unit_missing",
+    "observed_release_tag": "v0.76.0-rc.6",
+    "impact": "original_hybrid_layout_reconstruction_incomplete",
+    "supported_single_disk_rehearsal": "does_not_use_source_mount_units",
+    "source_fix": "include_depot_unit_in_future_backup_scope",
+    "release_fix_status": "unreleased_source_only",
+    "current_signed_assets_unchanged": true,
+    "full_restore_acceptance": "pending"
   }
 }

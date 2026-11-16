@@ -4,7 +4,7 @@ FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arş
 
 **0.76.0-rc.6 bir test sürümüdür.** Ayrı ESXi / Ubuntu 24.04 VM'de temiz RC6 kurulumu, gerçek FortiGate log alımı ve panelden 100 GiB ikinci diske taşıma kullanıcı tarafından doğrulandı. Taşıma sonrası panelden yeniden başlatmada FLS açıldı ve loglar otomatik gelmeye devam etti. Alıcının `syslog:adm` hesabıyla salt okunur depolama denetimi geçti; ayrı ext4 depo, altı log/yedek bağlantısı ve sistem diskinde kalan kuyruk doğrulandı. Beş temel servis çalışıyor ve başarısız systemd birimi yok.
 
-RC6, RC5'te taşıma sırasında görülen üst dizin izin hatasını giderir. Disk sayfasında açık ayrıntıların ve kaydırma konumunun otomatik yenilemelerde korunduğu da kullanıcı tarafından doğrulandı. Kuyruk/yazım hataları, veri bütünlüğü, RC6 sistem yedeği ve ayrı cihazda tam kurtarma kabulü henüz tamamlanmadı. Önceki RC5'te logsuz yedek oluşturma/indirme kullanıcı tarafından doğrulanmıştı. [Test adımları ve sınırlar](docs/installation.md).
+RC6, RC5'te taşıma sırasında görülen üst dizin izin hatasını giderir. Disk sayfasında açık ayrıntıların ve kaydırma konumunun otomatik yenilemelerde korunduğu da kullanıcı tarafından doğrulandı. İki diskli düzende logsuz sistem yedeği oluşturulup indirildi; dosya/kaynak bütünlüğü, SQL kapsamı ve anahtar eşleşmeleri salt okunur incelendi. Yedeğin özgün hibrit düzeni birebir yeniden kurma sınırı ve desteklenen tek diskli prova akışı [kurtarma kılavuzunda](docs/system-backup-restore.md) açıklanır. Kuyruk/yazım hataları, veri bütünlüğü ve ayrı cihazda tam kurtarma kabulü henüz tamamlanmadı. [Test adımları ve sınırlar](docs/installation.md).
 
 ## Kurulum
 
