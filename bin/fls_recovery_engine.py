@@ -465,11 +465,37 @@ def _trusted_module(runtime, filename, name):
     return module
 
 
+def _rehearsal_api_contract(route, value, supported):
+    """Modern restored applications must report deliberately disabled workers.
+
+    Older backups retain their original application files and UI; their worker
+    masks remain the enforcement boundary. Do not claim those UIs understand
+    rehearsal mode merely because an API returned HTTP 200.
+    """
+    require(isinstance(value, dict) and 'error' not in value,
+            'restored_api_failed', 'self_test')
+    if not supported or route not in ('disk_management', 'maintenance_status'):
+        return
+    require(value.get('rehearsal') is True and value.get('read_only') is True
+            and value.get('reason') == 'recovery_rehearsal'
+            and value.get('available') is False and value.get('fresh') is False,
+            'restored_rehearsal_api_invalid', 'self_test')
+    if route == 'disk_management':
+        require(value.get('status') == 'rehearsal' and value.get('error_code') == ''
+                and value.get('system') is None and value.get('depot') is None
+                and value.get('mirror') is None and value.get('candidates') == []
+                and all(value.get(key) is False for key in ('can_migrate', 'can_prepare', 'can_sync')),
+                'restored_rehearsal_api_invalid', 'self_test')
+    else:
+        require(value.get('state') == 'rehearsal' and value.get('can_control') is False,
+                'restored_rehearsal_api_invalid', 'self_test')
+
+
 class _Engine:
     def __init__(self, work, runtime, target, guard, progress, log):
         self.work, self.runtime, self.target = work, runtime, target
         self.guard, self.progress, self.log = guard, progress, log
-        self.phase = 'target_check'; self.connection = None; self.test_user = None
+        self.phase = 'target_check'; self.connection = None; self.test_user = None; self.rehearsal_ui_supported = False
 
     def stage(self, phase):
         require(phase in PHASES, 'phase_invalid', self.phase)
@@ -731,7 +757,7 @@ class _Engine:
             with _input(self.work / filename, 65536) as source: self.write(folder / filename, source.read())
         logs = Path('/var/lib/fls-recovery/web'); logs.mkdir(mode=0o700, parents=True, exist_ok=True); logs.chmod(0o700)
         config = folder / 'nginx.conf'
-        self.write(config, 'user www-data;\npid /run/fls-rehearsal-nginx.pid;\nevents {}\nhttp {\ninclude /etc/nginx/mime.types;\ndefault_type application/octet-stream;\naccess_log off;\nerror_log ' + str(logs / 'nginx-error.log') + ';\nserver {\nlisten 8443 ssl;\nserver_name _;\nssl_certificate ' + str(folder / 'cert.pem') + ';\nssl_certificate_key ' + str(folder / 'key.pem') + ';\nroot /var/www/fls/public;\nindex index.php;\nlocation / { try_files $uri $uri/ /index.php?$query_string; }\nlocation ~ \\.php$ {\ninclude /etc/nginx/fastcgi_params;\nfastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\nfastcgi_param HTTPS on;\nfastcgi_pass unix:/run/php/fls.sock;\n}\n}\n}\n')
+        self.write(config, 'user www-data;\npid /run/fls-rehearsal-nginx.pid;\nevents {}\nhttp {\ninclude /etc/nginx/mime.types;\ndefault_type application/octet-stream;\naccess_log off;\nerror_log ' + str(logs / 'nginx-error.log') + ';\nserver {\nlisten 8443 ssl;\nserver_name _;\nssl_certificate ' + str(folder / 'cert.pem') + ';\nssl_certificate_key ' + str(folder / 'key.pem') + ';\nroot /var/www/fls/public;\nindex index.php;\nlocation / { try_files $uri $uri/ /index.php?$query_string; }\nlocation ~ \\.php$ {\ninclude /etc/nginx/fastcgi_params;\nfastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\nfastcgi_param HTTPS on;\nfastcgi_param FLS_RECOVERY_REHEARSAL 1;\nfastcgi_pass unix:/run/php/fls.sock;\n}\n}\n}\n')
         self.run(['nginx', '-t', '-c', str(config)])
         self.write(Path('/etc/systemd/system') / WEB_UNIT,
             '[Unit]\nDescription=FLS paused recovery rehearsal web\nAfter=network.target php8.3-fpm.service\nRequires=php8.3-fpm.service\nConditionPathExists=/var/lib/fls-maintenance/paused\n[Service]\nType=simple\nExecStart=/usr/sbin/nginx -c ' + str(config) + ' -g "daemon off;"\nRestart=on-failure\n[Install]\nWantedBy=multi-user.target\n', 0o644)
@@ -760,10 +786,12 @@ class _Engine:
                 with opener.open(base + 'assets/' + asset, timeout=120) as response:
                     require(response.status == 200 and response.headers.get_content_type() in allowed
                             and len(response.read(200)) > 0, 'restored_asset_mime_invalid', self.phase)
+            self.rehearsal_ui_supported = Path('/var/www/fls/app/recovery-rehearsal.php').is_file()
             for route in ['system_backups', 'disk_management', 'power_status', 'maintenance_status']:
                 with opener.open(base + 'api.php?route=' + route, timeout=120) as response:
                     value = json.loads(response.read(8 * 1024 ** 2))
-                    require(response.status == 200 and isinstance(value, dict) and 'error' not in value, 'restored_api_failed', self.phase)
+                    require(response.status == 200, 'restored_api_failed', self.phase)
+                    _rehearsal_api_contract(route, value, self.rehearsal_ui_supported)
         finally:
             self.guard(self.phase)
             backup.query(self.connection, 'DELETE FROM fls.users WHERE username=%s', (username,)); self.test_user = None
@@ -830,7 +858,8 @@ def restore(archive_path, plan, work, runtime, guard, progress):
                         'original_database_accounts': True, 'keys_and_secrets': True,
                         'fresh_replay_state': True, 'target_storage_identity': True,
                         'https_certificate_verified': True, 'administrator_login': True,
-                        'read_only_api_routes': 4, 'css_and_javascript_mime': True, 'maintenance_paused': True,
+                        'read_only_api_routes': 4, 'rehearsal_ui_supported': engine.rehearsal_ui_supported,
+                        'css_and_javascript_mime': True, 'maintenance_paused': True,
                         'collector_stopped': True, 'external_work_disabled': True,
                         'test_account_removed': True, 'physical_boot_tested_by_engine': False,
                         'provider_or_ftp_called': False}}

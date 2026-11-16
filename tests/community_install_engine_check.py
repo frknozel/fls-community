@@ -342,6 +342,7 @@ class DiskHealthChecks(unittest.TestCase):
             overlay=ROOT/'tools/community/overlay/app/disk-management.php'
             shutil.copyfile(overlay if overlay.is_file() else ROOT/'app/disk-management.php',app/'app/disk-management.php')
             shutil.copyfile(ROOT/'app/management.php',app/'app/management.php')
+            shutil.copyfile(ROOT/'app/recovery-rehearsal.php',app/'app/recovery-rehearsal.php')
             def run(args, **kwargs):
                 commands.append(args)
                 if args[0]=='/usr/bin/systemctl':

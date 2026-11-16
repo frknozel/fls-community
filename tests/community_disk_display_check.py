@@ -43,12 +43,14 @@ def render_guest(version):
         if version is not None:(root/'VERSION').write_text(version)
         (app/'bootstrap.php').write_text('''<?php
 declare(strict_types=1);
+require __DIR__.'/recovery-rehearsal.php';
 $_SERVER['REQUEST_METHOD']='GET';
 $_SESSION=['csrf'=>'guest-fixture-csrf'];
 function authenticated(){return false;}
 function h($value){return htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 function query(...$values){throw new RuntimeException('Guest fixture must not query the database');}
 ''')
+        shutil.copyfile(ROOT/'app/recovery-rehearsal.php',app/'recovery-rehearsal.php')
         (app/'retention.php').write_text('<?php const FLS_RETENTION_DEFAULT_FAST_DAYS=30;')
         return subprocess.run([PHP,'-n',str(public/'index.php')],capture_output=True,text=True,check=True,timeout=10)
 

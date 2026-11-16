@@ -11,13 +11,15 @@
  const terminalNotice = (job,prefix='İşlem') => job.status==='succeeded'?prefix+' tamamlandı.':prefix+' tamamlanamadı. Disk durumunu kontrol edin.'+(failureCode(job.error_code)?' Denetim kodu: '+failureCode(job.error_code)+'.':'');
  const reasons = {protected_disk:'Sistem ve ana depo diskleri korunur.',system_disk:'Sistem diski korunur.',depot_disk:'Ana depo diski korunur.',size_too_small:'Kapasitesi ana depo diskinden küçük.',too_small:'Kapasitesi ana depo diskinden küçük.',mounted:'Disk veya bir bölümü kullanımda.',disk_mounted:'Disk veya bir bölümü kullanımda.',swap_in_use:'Disk takas alanı olarak kullanılıyor.',active_holders:'Disk başka bir depolama biriminde kullanılıyor.',read_only:'Disk salt okunur.',identity_missing:'Disk kimliği doğrulanamadı.',in_use:'Disk kullanımda.'};
  let root=null,snapshot=null,observed=0,reading=false,writing=false,sequence=0,controller=null,lastRead=0,denied=false,pending=null,acknowledged=null,error='',notice='',dialog=null,preview=null,returnFocus=null,wasActive=false;
+ let rehearsalMode=false;
+ const readOnly = () => document.documentElement.dataset.recoveryRehearsal==='1'||rehearsalMode;
  const admin = () => !denied && document.documentElement.dataset.userRole === 'admin';
  const active = () => admin() && !document.hidden && root?.isConnected && !document.getElementById('view-settings')?.classList.contains('hidden') && document.querySelector('#settings-content [data-settings-tab="storage"][aria-selected="true"]');
  const instant = value => typeof value === 'string' && value ? new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value)?value:value.replace(' ','T')+'Z').getTime() : NaN;
- const fresh = () => admin() && snapshot?.available === true && snapshot.fresh === true && observed>0 && Date.now()-observed<30000 && Date.now()-instant(snapshot.checked_at)>=-5000 && Date.now()-instant(snapshot.checked_at)<=45000;
+ const fresh = () => !readOnly() && admin() && snapshot?.available === true && snapshot.fresh === true && observed>0 && Date.now()-observed<30000 && Date.now()-instant(snapshot.checked_at)>=-5000 && Date.now()-instant(snapshot.checked_at)<=45000;
  const busy = () => acknowledged || (['queued','running'].includes(snapshot?.active_job?.status)?snapshot.active_job:null);
  const workerBusy = () => ['preparing','syncing','migrating'].includes(snapshot?.status);
- const canWrite = () => !workerBusy() && fresh() && !reading && !writing && !pending && !busy();
+ const canWrite = () => !readOnly() && !workerBusy() && fresh() && !reading && !writing && !pending && !busy();
  const protectedDisk = disk => disk && [snapshot?.system?.wwn,snapshot?.depot?.wwn].includes(disk.wwn);
  const eligible = disk => disk && disk.eligible === true && wwn(disk.wwn) && /^[a-f0-9]{64}$/.test(disk.token) && disk.reasons.length===0 && !protectedDisk(disk) && Number.isSafeInteger(disk.size_bytes) && (snapshot.mode==='system-root'||Number.isSafeInteger(snapshot?.depot?.size_bytes)&&disk.size_bytes>=snapshot.depot.size_bytes);
  const canPrepare = disk => canWrite() && (snapshot.mode==='system-root'?snapshot.can_migrate===true:snapshot.can_prepare===true) && !snapshot.mirror && eligible(disk);
@@ -51,9 +53,25 @@
   if(snapshot.mode==='system-root')return '<div><h3>Sistem diski · tek disk düzeni</h3><p>Ubuntu, FLS, MariaDB, loglar ve yedekler sistem diskinde saklanır. Ayrı ana depo diski zorunlu değildir.</p><pre>/srv/fls-server/\n  raw/       Ham loglar\n  archive/   Arşivler ve damga belgeleri\n  metrics/   Sağlık ölçümleri\n  backups/   Yedek hazırlama alanı\n  db-dumps/  Günlük logsuz DB yedekleri\n/var/lib/fls-recovery-download/\n             İndirilebilir sistem yedekleri</pre><p>Geçici teslim kuyruğu: /srv/fls-server/queue · en fazla 10 GB.</p></div>';
   return '<div><h3>Sistem diski</h3><p>Ubuntu, FLS, MariaDB ve aranabilir indeks.</p><p>Geçici teslim kuyruğu: en fazla 10 GB.</p></div><div><h3>Ana depo · /srv/fls-storage</h3><pre>FLS-Logs/\n  raw/       Ham loglar\n  archive/   Arşivler ve damga belgeleri\n  metrics/   Sağlık ölçümleri\nFLS-Backups/\n  staging/   Yedek hazırlama alanı\n  published/ İndirilebilir sistem yedekleri\nDB-Dump/     Günlük logsuz DB yedekleri</pre></div>';
  }
+ function renderRehearsal(){
+  if(dialog?.open)dialog.close();
+  root.setAttribute('aria-busy','false');
+  find('disk-management-status').textContent='Kurtarma provasında otomatik disk envanteri ve disk yönetimi kapalı.';
+  find('disk-management-refresh').disabled=true;
+  find('disk-management-error').textContent='';find('disk-management-error').hidden=true;
+  find('disk-management-notice').textContent='Bu panel üretim sistemini etkinleştirmez. Disk hazırlama, kayıt taşıma ve eşitleme yapılamaz.';find('disk-management-notice').hidden=false;
+  find('disk-management-replay').hidden=true;find('disk-management-replay').disabled=true;
+  find('disk-management-sync').hidden=true;find('disk-management-sync').disabled=true;
+  find('disk-progress').hidden=true;
+  put('disk-role-cards','<p class="disk-empty">Tek diskte kurtarma provası. Kaynak sunucunun disk rolleri bu hedefe uygulanmaz.</p>');
+  put('disk-candidates','');put('disk-management-history','');
+  find('disk-management-checked').textContent='Kurtarma provası · disk yönetimi salt okunur';
+  root.querySelectorAll('.disk-layout,.disk-mirror,.disk-history').forEach(node=>{node.hidden=true;});
+ }
  function render(){
   if(!root?.isConnected)return;
   root.hidden=!admin();if(!admin()){if(dialog?.open)dialog.close();return;}
+  if(readOnly()){renderRehearsal();return;}
   root.setAttribute('aria-busy',String(reading||writing));
   find('disk-management-refresh').disabled=reading||writing||!admin();
   find('disk-management-status').textContent=!admin()?'Yönetici oturumu gerekli.':reading?'Diskler kontrol ediliyor…':writing?'İstek kaydediliyor…':pending?'Önceki isteğin sonucu doğrulanmalı. Aynı istek kimliği korunuyor.':busy()?names[busy().action]+' · '+states[busy().status]:workerBusy()?(snapshot.status==='preparing'?'Eşleme diski hazırlanıyor…':'Ana depo eşitleniyor…'):!fresh()?'Güncel disk durumu alınamadı. Listeyi yenileyin.':'Disk rolleri doğrulandı.';
@@ -93,9 +111,10 @@
    root.addEventListener('click',event=>{const button=event.target instanceof Element&&event.target.closest('[data-disk-prepare]');if(button&&!button.disabled)openPrepare(snapshot?.candidates.find(disk=>disk.wwn===button.dataset.diskPrepare));});
    render();
   }
-  if(active()&&!reading&&!writing&&!snapshot)refresh();
+  if(!readOnly()&&active()&&!reading&&!writing&&!snapshot)refresh();
  }
  function accept(value){
+  if(value&&typeof value==='object'&&!Array.isArray(value)&&(value.rehearsal===true||value.read_only===true)){rehearsalMode=true;snapshot=value;observed=0;error='';notice='';render();return;}
   if(!valid(value))throw new Error('Disk envanteri doğrulanamadı.');
   snapshot=value;observed=Date.now();
   if(acknowledged){const job=value.jobs.find(job=>job.request_key===acknowledged.request_key);if(job){acknowledged=['queued','running'].includes(job.status)?job:null;if(!acknowledged)notice=terminalNotice(job);}}
@@ -109,7 +128,7 @@
   return value;
  }
  async function refresh(){
-  if(!active()||reading||writing)return false;
+  if(readOnly()||!active()||reading||writing)return false;
   const mine=++sequence,abort=new AbortController();controller=abort;reading=true;lastRead=Date.now();render();const timer=setTimeout(()=>abort.abort(),12000);
   try{const response=await fetch('/api.php?route=disk_management',{credentials:'same-origin',cache:'no-store',signal:abort.signal}),value=await body(response);if(mine!==sequence)return false;accept(value);return true;}
   catch(failure){if(mine===sequence){observed=0;error=denied?'Yönetici oturumu doğrulanamadı. Sayfayı yeniden yükleyin.':'Disk durumu alınamadı. Listeyi yenileyebilirsiniz.';render();}return false;}
@@ -126,7 +145,7 @@
   dialog.querySelector('form').onsubmit=event=>{event.preventDefault();if(dialog.querySelector('#disk-prepare-submit').disabled||!preview)return;const context={...preview};dialog.close();request(context.action||'prepare',context,context.replay===true);};
  }
  function dialogAllowed(){
-  if(!preview||!fresh()||writing||reading||!active())return false;
+  if(readOnly()||!preview||!fresh()||writing||reading||!active())return false;
   if(preview.replay)return pending?.request_key===preview.request_key;
   const disk=snapshot.candidates.find(disk=>disk.wwn===preview.wwn);
   return canPrepare(disk)&&snapshot.boot_id===preview.boot_id&&disk.token===preview.token&&disk.serial===preview.serial&&disk.model===preview.model&&disk.size_bytes===preview.size_bytes;
@@ -137,6 +156,7 @@
   dialog.querySelector('#disk-prepare-validity').textContent=allowed?'Yalnız yukarıdaki disk silinecek.':'Envanter veya disk durumu değişti. Pencereyi kapatıp güncel listeyi yükleyin.';
  }
  function openPrepare(disk,replay=false){
+  if(readOnly())return;
   if(replay?!pending||!['prepare','migrate'].includes(pending.action)||!fresh()||writing:!canPrepare(disk))return;
   ensureDialog();returnFocus=document.activeElement;
   preview=replay?{...pending,replay:true,wwn:pending.candidate_wwn,serial:pending.disk_serial,model:pending.disk_model,size_bytes:pending.disk_size_bytes}:{...disk,action:snapshot.mode==='system-root'?'migrate':'prepare',boot_id:snapshot.boot_id,replay:false};
@@ -149,7 +169,7 @@
   dialog.querySelector('#disk-prepare-confirmation').value='';dialog.showModal();updateDialog();dialog.querySelector('#disk-prepare-cancel').focus();
  }
  async function request(action,context=null,replay=false){
-  if(!active()||writing||!fresh()||replay&&(!pending||pending.action!==action)||!replay&&(['prepare','migrate'].includes(action)?!canPrepare(snapshot.candidates.find(disk=>disk.wwn===context?.wwn)):!canSync()))return;
+  if(readOnly()||!active()||writing||!fresh()||replay&&(!pending||pending.action!==action)||!replay&&(['prepare','migrate'].includes(action)?!canPrepare(snapshot.candidates.find(disk=>disk.wwn===context?.wwn)):!canSync()))return;
   let descriptor,csrf;
   try{
    csrf=document.querySelector('meta[name="csrf-token"]')?.content;if(!csrf)throw new Error('Oturum doğrulaması bulunamadı. Sayfayı yeniden yükleyin.');

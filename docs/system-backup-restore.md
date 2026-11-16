@@ -14,7 +14,10 @@ VirtualBox hedefinde tek diskli kurtarma provası kullanıcı tarafından tamaml
 sihirbaz `succeeded · complete` sonucunu verdi, yedekteki yönetici hesabıyla giriş
 yapıldı, üç prova servisi etkin ve başarısız birim sayısı sıfırdı. Log alıcısı ve
 indeksleyici maskeli kaldı; depolama yeni hedef kimliğiyle `system-root` olarak
-doğrulandı. Kurtarılan hedefin yeniden başlatma kontrolü henüz bekliyor.
+doğrulandı. Yeniden başlatma sonrasında da `8443` prova paneline giriş yapıldı;
+aynı üç servis etkin, başarısız birim sayısı sıfır, log alıcısı ve indeksleyici
+maskeliydi. Depolama aynı hedef kimliğiyle `system-root` kaldı. Kullanıcı ve cihaz
+ayarları korundu, geçmiş loglar boş ve log alımı duraklatılmış durumdaydı.
 Bu RC6 yedeğinde fiziksel ana depo birimi `srv-fls\x2dstorage.mount` eksiktir;
 altı bind mount ve servis bağımlılıkları ise bulunur. Özgün hibrit düzeni bu
 paketten birebir yeniden kurma tamamlanmış bir kurtarma yöntemi değildir.
@@ -67,7 +70,8 @@ geliştirme kaynağında yayımlanır; imzalı RC6 kurulum paketine eklenmiş de
 RC6 kabul denemesinde bu araçla 173 paket ve yaklaşık 85 MiB çevrimdışı runtime
 hazırlanması kullanıcı tarafından doğrulandı. Kaynakta kurulu paketler, uygulama
 dosyaları ve servisler değiştirilmedi. Bu paketle ayrı VirtualBox hedefindeki
-tek diskli kurtarma provası tamamlandı; yeniden başlatma kabulü bekliyor.
+tek diskli kurtarma provası ve yeniden başlatma kontrolü tamamlandı. Bu kabul,
+prova arayüzündeki aşağıda açıklanan RC6 durum gösterimi sorununu kapsamaz.
 
 Araç yalnız **kurulu Community v0.76.0-rc.6** kaynağını kabul eder; sürüm makbuzunu,
 kaynak envanterini ve kullandığı yardımcıların hash'lerini doğrular. Aracı
@@ -184,6 +188,32 @@ aktarım otomatik etkinleştirilmez. Eski güç komutları, çalışma kuyruklar
 önleme günlükleri yeniden yürütülmez; kurtarma için taze çalışma durumu kurulur.
 Kaynak sistem çalışırken kurtarılan kopyayı ikinci bir etkin FLS gibi kullanmayın.
 Üretime geçiş bu prova sihirbazının kapsamı dışındadır ve ayrıca planlanmalıdır.
+
+RC6 yedeğiyle yapılan gerçek provada, disk envanterini güncelleyen işçi de
+maskeli kaldığı için **Disk ve depolama** ekranı boş başlangıç kaydını
+`state_invalid` olarak gösterdi. Aynı hedefte depolama doğrulaması ve servis
+kontrolleri başarılıydı; bu arayüz hatası tek başına disk arızası anlamına gelmez.
+Eski arayüzdeki **Log alımını başlat** isteği de kuyruğa yazılabilse bile maskeli
+işçi tarafından uygulanmaz. Provanın log alımını kapalı tutması beklenir; bu
+düğmenin kullanılabilir görünmesi ve disk durumunun hata gibi sunulması RC6
+arayüzünün eksikliğidir.
+
+Geliştirme kaynağındaki düzeltme, ayrı prova web sunucusunun verdiği güvenilir
+`FLS_RECOVERY_REHEARSAL` FastCGI işaretiyle prova bağlamını tanır. Disk ve log
+alımı durumları, güncel envanter doğrulanmış gibi gösterilmeden, işçilerin kapalı
+olduğunu açıklar. Log alımı, disk yönetimi ve güç işlemlerinin düğmeleri
+kapatılır; korunan işlem istekleri kuyruğa yazılmadan
+`recovery_rehearsal_read_only` koduyla reddedilir. Kurtarma denetimi, bu desteği
+içeren uygulamalarda yalnız HTTP başarısını değil bu prova durumunu da doğrular.
+
+Bu düzeltme henüz yeni imzalı sürümde yayımlanmamıştır; mevcut RC6 kurulum
+paketi, alınmış yedek ve çalışan prova VM'si değiştirilmez. Eski yedek kendi
+uygulama dosyalarını geri yüklediğinden yeni kit kullanılması tek başına eski
+arayüzü güncellemez. Eski yedekle desteklenen kurtarma çalışabilir; geliştirme
+motorunun kontrol raporundaki `rehearsal_ui_supported: false`, yeni prova
+arayüzü sözleşmesinin o yedekte bulunmadığını belirtir. Düzeltilmiş arayüzün
+ayrı kabulü, bu desteği içeren yayımlanmış uygulama ve ondan alınan yedekle
+henüz yapılmamıştır.
 
 Hata halinde ekrandaki sabit hata kodunu ve aşamayı saklayın. Root'a özel çalışma
 kanıtları hedefte `/var/lib/fls-recovery` altındadır; içeriklerini gelişigüzel

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/management.php';
+require_once __DIR__.'/recovery-rehearsal.php';
 
 const DISK_MANAGEMENT_JS_MAX=9007199254740991;
 
@@ -71,6 +72,7 @@ function disk_management_job(array $row): array {
 }
 function disk_management_state(?array $row): array {
  $out=['schema'=>1,'mode'=>null,'boot_id'=>null,'checked_at'=>null,'generated_at_utc'=>null,'config_revision'=>0,'status'=>'error','error_code'=>'worker_unavailable','available'=>false,'fresh'=>false,'system'=>null,'depot'=>null,'mirror'=>null,'candidates'=>[],'progress'=>null];
+ if(fls_recovery_rehearsal())return array_replace($out,['status'=>'rehearsal','error_code'=>'','rehearsal'=>true,'read_only'=>true,'reason'=>'recovery_rehearsal']);
  if(!$row)return $out;
  try{
   if(disk_management_number($row['id']??null,1,1)!==1||disk_management_number($row['version']??null,1,1)!==1||!disk_management_uuid($row['boot_id']??null)||!in_array($row['status']??null,['idle','preparing','syncing','migrating','error'],true))throw new ManagementError('Disk durumu hazır değil.',503);
@@ -100,12 +102,14 @@ function disk_management_state(?array $row): array {
 }
 function disk_management_snapshot(): array {
  disk_management_admin('GET');
+ if(fls_recovery_rehearsal())return disk_management_state(null)+['jobs'=>[],'active_job'=>null,'can_migrate'=>false,'can_prepare'=>false,'can_sync'=>false];
  try{$state=disk_management_state(query('SELECT * FROM disk_management_state WHERE id=1')[0]??null);$jobs=array_map('disk_management_job',query('SELECT * FROM disk_management_jobs ORDER BY id DESC LIMIT 25'));$active=query("SELECT * FROM disk_management_jobs WHERE status IN ('queued','running') ORDER BY id LIMIT 1")[0]??null;$active=$active?disk_management_job($active):null;}
  catch(PDOException $e){if((int)($e->errorInfo[1]??0)!==1146)throw $e;$state=disk_management_state(null);$jobs=[];$active=null;}
  $idle=$state['available']&&$state['status']==='idle'&&$active===null;
  return $state+['jobs'=>$jobs,'active_job'=>$active,'can_migrate'=>$idle&&$state['mode']==='system-root'&&$state['mirror']===null&&count(array_filter($state['candidates'],fn($row)=>$row['eligible']))>0,'can_prepare'=>$idle&&$state['mode']==='hybrid'&&$state['mirror']===null&&count(array_filter($state['candidates'],fn($row)=>$row['eligible']))>0,'can_sync'=>$idle&&$state['mirror']!==null&&($state['mirror']['present']??null)===true];
 }
 function disk_management_write(string $route,array $data): array {
+ fls_recovery_require_writable();
  disk_management_admin('POST');$csrf=$data['_csrf']??$_SERVER['HTTP_X_CSRF_TOKEN']??'';if(!is_string($csrf)||$csrf===''||!is_string($_SESSION['csrf']??null)||$_SESSION['csrf']===''||!hash_equals($_SESSION['csrf'],$csrf))throw new ManagementError('Oturum doğrulaması başarısız.',403);
  $action=match($route){'prepare_primary_disk'=>'migrate','prepare_mirror_disk'=>'prepare','sync_mirror_disk'=>'sync',default=>throw new ManagementError('Disk işlemi bulunamadı.',404)};
  $allowed=in_array($action,['prepare','migrate'],true)?['request_key','boot_id','inventory_token','candidate_wwn','confirmation','_csrf']:['request_key','boot_id','_csrf'];

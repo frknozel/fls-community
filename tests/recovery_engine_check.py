@@ -366,6 +366,30 @@ class RecoveryEngineTests(unittest.TestCase):
                  patch.object(core, 'run', side_effect=AssertionError('no mutation before full validation')):
                 with self.assertRaisesRegex(engine.RecoveryError, 'service_identities_invalid'): core.identities(self.root)
 
+    def test_modern_rehearsal_api_rejects_successful_http_with_invalid_disk_state(self):
+        disk = {'rehearsal': True, 'read_only': True, 'reason': 'recovery_rehearsal',
+                'available': False, 'fresh': False, 'status': 'rehearsal', 'error_code': '',
+                'system': None, 'depot': None, 'mirror': None, 'candidates': [],
+                'can_migrate': False, 'can_prepare': False, 'can_sync': False}
+        engine._rehearsal_api_contract('disk_management', disk, True)
+        for change in [{'error_code': 'state_invalid'}, {'fresh': True}, {'available': True},
+                       {'rehearsal': False}, {'can_migrate': True}, {'can_prepare': True}, {'candidates': [{}]}]:
+            with self.subTest(change=change), self.assertRaisesRegex(engine.RecoveryError, 'restored_rehearsal_api_invalid'):
+                engine._rehearsal_api_contract('disk_management', {**disk, **change}, True)
+        maintenance = {'rehearsal': True, 'read_only': True, 'reason': 'recovery_rehearsal',
+                       'available': False, 'fresh': False, 'state': 'rehearsal', 'can_control': False}
+        engine._rehearsal_api_contract('maintenance_status', maintenance, True)
+        with self.assertRaisesRegex(engine.RecoveryError, 'restored_rehearsal_api_invalid'):
+            engine._rehearsal_api_contract('maintenance_status', {**maintenance, 'can_control': True}, True)
+
+    def test_legacy_backup_ui_is_supported_without_claiming_modern_rehearsal_contract(self):
+        legacy = {'available': False, 'fresh': False, 'status': 'error', 'error_code': 'state_invalid'}
+        engine._rehearsal_api_contract('disk_management', legacy, False)
+        with self.assertRaisesRegex(engine.RecoveryError, 'restored_rehearsal_api_invalid'):
+            engine._rehearsal_api_contract('disk_management', legacy, True)
+        with self.assertRaisesRegex(engine.RecoveryError, 'restored_api_failed'):
+            engine._rehearsal_api_contract('disk_management', {'error': 'fixture'}, False)
+
     def test_rehearsal_web_configuration_supplies_browser_mime_types_and_persists_only_web(self):
         target = self.root/'web-target'; target.mkdir()
         for name in ['var/lib', 'var/cache', 'run', 'etc/fls', 'etc/systemd/system']:
@@ -386,6 +410,7 @@ class RecoveryEngineTests(unittest.TestCase):
         self.assertIn('include /etc/nginx/mime.types;', config)
         self.assertIn('default_type application/octet-stream;', config)
         self.assertIn('listen 8443 ssl;', config)
+        self.assertIn('fastcgi_param FLS_RECOVERY_REHEARSAL 1;', config)
         unit = (target/'etc/systemd/system'/engine.WEB_UNIT).read_text()
         self.assertIn('ConditionPathExists=/var/lib/fls-maintenance/paused', unit)
         self.assertIn(['systemctl','enable','--now','php8.3-fpm.service',engine.WEB_UNIT], calls)

@@ -10,6 +10,12 @@ try {
     foreach($_GET as $value)if(!is_string($value)&&!is_int($value))throw new InvalidArgumentException('Sorgu alanları tek bir metin değeri olmalı.');
     foreach($_GET as $key=>$value){$text=(string)$value;if(strlen($text)>8192||!mb_check_encoding($text,'UTF-8')||str_contains($text,"\0"))throw new InvalidArgumentException('Sorgu metni geçersiz veya fazla uzun.');$_GET[$key]=$text;}
     $route=$_GET['route']??'summary';
+    if(fls_recovery_write_blocked($route,$_SERVER['REQUEST_METHOD']??'')){
+        if($route!=='cold_query_start'&&($_SESSION['role']??'')!=='admin')json_response(['error'=>'Bu işlem yönetici yetkisi gerektirir.'],403);
+        $token=$_POST['_csrf']??$_SERVER['HTTP_X_CSRF_TOKEN']??'';
+        if(!is_string($token)||$token===''||!is_string($_SESSION['csrf']??null)||!hash_equals($_SESSION['csrf'],$token))json_response(['error'=>'Oturum doğrulaması başarısız.'],403);
+        json_response(fls_recovery_write_error(),409);
+    }
     if(in_array($route,['disk_management','prepare_primary_disk','prepare_mirror_disk','sync_mirror_disk'],true)){
         if(($_SESSION['role']??'')!=='admin')json_response(['error'=>'Disk yönetimi yönetici yetkisi gerektirir.'],403);
         require_once __DIR__.'/../app/disk-management.php';

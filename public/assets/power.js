@@ -12,17 +12,18 @@
  const storageKey = 'fls-power-intent:' + (document.documentElement.dataset.userId || 'admin');
  let data = null, observedAt = 0, reading = false, saving = false, readSequence = 0;
  let intent = null, unresolved = null, note = '', transportError = false, accessDenied = false;
- let readController = null, lastVisible = false;
+ let readController = null, lastVisible = false, rehearsalMode = false;
 
  function esc(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char])); }
  function visible() { return !document.hidden && !document.getElementById('view-system')?.classList.contains('hidden'); }
  function admin() { return !accessDenied && document.documentElement.dataset.userRole === 'admin'; }
- function fresh() { return admin() && data?.available === true && data?.fresh === true && observedAt > 0 && Date.now() - observedAt < 30000; }
+ function readOnly() { return document.documentElement.dataset.recoveryRehearsal === '1' || rehearsalMode; }
+ function fresh() { return !readOnly() && admin() && data?.available === true && data?.fresh === true && observedAt > 0 && Date.now() - observedAt < 30000; }
  function validSnapshot(value) {
   return value && typeof value === 'object' && !Array.isArray(value) && value.schema === 1 &&
-   Number.isInteger(value.revision) && value.revision >= 0 && typeof value.boot_id === 'string' &&
+   (value.rehearsal === true || value.read_only === true || Number.isInteger(value.revision) && value.revision >= 0 && typeof value.boot_id === 'string' &&
    value.boot_id.length > 0 && (value.request === null || (value.request && typeof value.request === 'object' && !Array.isArray(value.request) &&
-    Number.isInteger(value.request.id) && Object.hasOwn(actions, value.request.action) && Object.hasOwn(statusNames, value.request.status)));
+    Number.isInteger(value.request.id) && Object.hasOwn(actions, value.request.action) && Object.hasOwn(statusNames, value.request.status))));
  }
  function blocked() { return !fresh() || reading || saving || !!unresolved || blockingStatuses.has(data?.request?.status); }
  function time(value) {
@@ -65,6 +66,12 @@
  }
  function render() {
   if (!admin() && !accessDenied) { root.hidden = true; closeForContext(); return; }
+  if (readOnly()) {
+   if (dialog.open) dialog.close();
+   root.setAttribute('aria-busy', 'false');
+   root.innerHTML = '<section class="panel power-panel" aria-labelledby="power-panel-title"><div class="panel-heading"><div><h2 id="power-panel-title">Sunucu yönetimi</h2><p>Kurtarma provası: sunucu yönetimi kapalı.</p></div><span class="tag medium" role="status">Kurtarma provası</span></div><div class="power-panel-body"><p class="power-status" role="status">Bu prova panelinden işletim sistemi kapatılamaz veya yeniden başlatılamaz.</p><div class="power-actions"><button type="button" class="button power-off" data-power-action="poweroff" disabled>Sunucuyu kapat…</button><button type="button" class="button" data-power-action="reboot" disabled>Yeniden başlat…</button><button type="button" class="button" data-power-refresh disabled>Durumu yenile</button></div></div></section>';
+   return;
+  }
   root.setAttribute('aria-busy', String(reading || saving));
   const request = data?.request, disabled = blocked();
   const status = accessDenied ? 'Erişim yok' : !fresh() ? 'Durum doğrulanamıyor' : request ? statusNames[request.status] : 'İşlem için hazır';
@@ -77,6 +84,7 @@
  }
  function accept(value, reconcile = false) {
   if (!validSnapshot(value)) throw new Error('Sunucu yönetimi yanıtı doğrulanamadı.');
+  if (value.rehearsal === true || value.read_only === true) { rehearsalMode = true; data = value; observedAt = 0; render(); return; }
   if (data && value.boot_id === data.boot_id && value.revision < data.revision) return;
   data = value; observedAt = Date.now(); transportError = false;
   if (reconcile && unresolved && fresh()) {
@@ -97,6 +105,7 @@
   return value;
  }
  async function refresh(reconcile = false) {
+  if (readOnly()) { render(); return false; }
   if (reading || saving || !admin()) return false;
   const sequence = ++readSequence;
   reading = true; readController = new AbortController();

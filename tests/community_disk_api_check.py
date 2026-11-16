@@ -84,6 +84,7 @@ class DiskApiTests(unittest.TestCase):
         self.folder = Path(self.temp.name)
         source = OVERLAY / 'app/disk-management.php' if OVERLAY.is_dir() else ROOT / 'app/disk-management.php'
         shutil.copy2(source, self.folder / 'disk-management.php')
+        shutil.copy2(ROOT / 'app/recovery-rehearsal.php', self.folder / 'recovery-rehearsal.php')
         shutil.copy2(ROOT / 'app/management.php', self.folder / 'management.php')
         (self.folder / 'fixture.php').write_text(PHP_FIXTURE)
 

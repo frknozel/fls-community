@@ -1,10 +1,12 @@
 'use strict';
-let maintenanceData=null,maintenanceSaving=false,maintenanceReading=false,maintenanceReadSequence=0,maintenanceContextGeneration=0,maintenanceIntent=null,maintenanceTimer=null,maintenanceObservedAt=0;
-const maintenanceStateNames={normal:'Log alımı açık',paused:'Log alımı durduruldu',pending:'İstek uygulanıyor',error:'İşlem başarısız',inactive:'Log alıcısı kapalı',unknown:'Durum doğrulanamıyor',stale:'Durum güncel değil'};
+let maintenanceData=null,maintenanceSaving=false,maintenanceReading=false,maintenanceReadSequence=0,maintenanceContextGeneration=0,maintenanceIntent=null,maintenanceTimer=null,maintenanceObservedAt=0,maintenanceRehearsal=false;
+const maintenanceReadOnly=(d=maintenanceData)=>document.documentElement.dataset.recoveryRehearsal==='1'||maintenanceRehearsal||d?.rehearsal===true||d?.read_only===true;
+const maintenanceStateNames={normal:'Log alımı açık',paused:'Log alımı durduruldu',pending:'İstek uygulanıyor',error:'İşlem başarısız',inactive:'Log alıcısı kapalı',unknown:'Durum doğrulanamıyor',stale:'Durum güncel değil',rehearsal:'Kurtarma provası'};
 const maintenanceCollectorNames={active:'Çalışıyor',inactive:'Kapalı',activating:'Başlatılıyor',deactivating:'Durduruluyor',failed:'Başarısız',unknown:'Bilinmiyor'};
-function maintenanceSafeState(d){if(d===maintenanceData&&maintenanceObservedAt&&Date.now()-maintenanceObservedAt>45000)return 'stale';return d?.fresh===true&&d?.available===true&&Object.hasOwn(maintenanceStateNames,d.state)?d.state:((d?.state==='stale')?'stale':'unknown');}
+function maintenanceSafeState(d){if(maintenanceReadOnly(d))return 'rehearsal';if(d===maintenanceData&&maintenanceObservedAt&&Date.now()-maintenanceObservedAt>45000)return 'stale';return d?.fresh===true&&d?.available===true&&Object.hasOwn(maintenanceStateNames,d.state)?d.state:((d?.state==='stale')?'stale':'unknown');}
 function maintenanceBannerText(d){
  const status=maintenanceSafeState(d),paused=d?.request?.requested_mode==='paused';
+ if(status==='rehearsal')return 'Kurtarma provası: log alımı ve otomatik işler kapalı. Bu panel üretim sistemini etkinleştirmez.';
  if(status==='normal')return '';
  if(status==='paused')return 'Bu sunucudaki tüm FortiGate’lerin log alımı durduruldu. Yeni loglar alınmıyor; yönetici başlatana kadar kapalı kalır. Mevcut kayıtlar ve disk kuyruğu korunur.';
  if(status==='pending')return paused?'Log alımını durdurma isteği uygulanıyor. Alıcının kapandığı henüz doğrulanmadı.':'Log alımını başlatma isteği uygulanıyor. Alıcının çalıştığı henüz doğrulanmadı.';
@@ -14,6 +16,7 @@ function maintenanceBannerText(d){
 }
 function maintenancePanel(d){
  if(document.documentElement.dataset.userRole!=='admin')return '';
+ if(maintenanceReadOnly(d))return '<section id="maintenance-panel" class="panel maintenance-panel"><div class="panel-heading"><div><h2>Log alımı · kurtarma provası</h2><p>Kurtarma provası: log alımı ve otomatik işler kapalı.</p></div><span class="tag medium" role="status">Kurtarma provası</span></div><div class="maintenance-actions"><button type="button" class="button maintenance-stop" data-maintenance-mode="paused" disabled>Log alımını durdur</button><button type="button" class="button primary" data-maintenance-mode="normal" disabled>Log alımını başlat</button><button type="button" class="button" data-maintenance-refresh disabled>Durumu yenile</button></div><p class="maintenance-help">Bu panelden log alımı başlatılamaz. Kullanıcı ve cihaz ayarlarını inceleyebilirsiniz; ham loglar ve çalışma geçmişi geri yüklenmez.</p></section>';
  const status=maintenanceSafeState(d),r=d?.request||{},w=d?.worker||{},revision=Number.isInteger(r.revision)&&r.revision>0?r.revision:null,disabled=maintenanceSaving||revision===null;
  const stopDisabled=disabled||status==='paused'||status==='pending'&&r.requested_mode==='paused',startDisabled=disabled||status==='normal'||status==='pending'&&r.requested_mode==='normal';
  const retry=status==='error'||status==='inactive'||status==='stale';
@@ -26,11 +29,12 @@ function maintenanceRender(){
  const panel=document.getElementById('maintenance-panel');if(panel){panel.outerHTML=maintenancePanel(maintenanceData);bindMaintenancePanel();}
  if(document.documentElement.dataset.userRole==='admin'){
   const text=document.getElementById('collector-text'),dot=document.getElementById('collector-dot'),status=maintenanceSafeState(maintenanceData);
-  if(text)text.textContent=status==='normal'?'Log alıcısı çalışıyor':status==='paused'?'Log alımı durduruldu':status==='pending'?'Alıcı isteği uygulanıyor':'Alıcı durumu doğrulanamıyor';if(dot)dot.classList.toggle('bad',status!=='normal');
+  if(text)text.textContent=status==='rehearsal'?'Kurtarma provası · log alımı kapalı':status==='normal'?'Log alıcısı çalışıyor':status==='paused'?'Log alımı durduruldu':status==='pending'?'Alıcı isteği uygulanıyor':'Alıcı durumu doğrulanamıyor';if(dot){dot.classList.toggle('bad',status!=='normal'&&status!=='rehearsal');dot.style.backgroundColor=status==='rehearsal'?'var(--ui-muted)':'';}
  }
 }
 function maintenanceAccept(d){
  if(!d||typeof d!=='object'||Array.isArray(d))return;
+ if(d.rehearsal===true||d.read_only===true){maintenanceRehearsal=true;maintenanceData=d;maintenanceContextChanged();maintenanceRender();return;}
  const incoming=d.request?.revision,current=maintenanceData?.request?.revision;
  if(Number.isInteger(current)&&!Number.isInteger(incoming)){maintenanceData={...maintenanceData,available:false,fresh:false,state:'unknown'};maintenanceObservedAt=Date.now();maintenanceRender();return;}
  if(Number.isInteger(current)&&incoming<current)return;
@@ -39,16 +43,16 @@ function maintenanceAccept(d){
  maintenanceData=d;maintenanceObservedAt=Date.now();maintenanceRender();
 }
 async function maintenanceRefresh(){
- if(maintenanceReading)return;
+ if(maintenanceReadOnly()){maintenanceRender();return;}if(maintenanceReading)return;
  const sequence=++maintenanceReadSequence;maintenanceReading=true;maintenanceRender();
  try{const d=await api('maintenance_status');if(sequence===maintenanceReadSequence)maintenanceAccept(d);}
  catch(error){if(sequence!==maintenanceReadSequence||error.name==='AbortError')return;maintenanceData={...(maintenanceData||{}),fresh:false,state:'unknown'};maintenanceRender();}
  finally{if(sequence===maintenanceReadSequence){maintenanceReading=false;maintenanceRender();}}
 }
 function maintenanceContextChanged(){maintenanceContextGeneration++;const dialog=document.getElementById('maintenance-dialog');if(dialog?.open)dialog.close();maintenanceIntent=null;}
-function maintenanceCurrent(intent){return intent===maintenanceIntent&&intent.generation===maintenanceContextGeneration&&document.documentElement.dataset.userRole==='admin'&&String(state.fgDevice)===intent.device&&state.view===intent.view&&state.systemTab===intent.tab&&document.getElementById('maintenance-dialog')?.open;}
+function maintenanceCurrent(intent){return !maintenanceReadOnly()&&intent===maintenanceIntent&&intent.generation===maintenanceContextGeneration&&document.documentElement.dataset.userRole==='admin'&&String(state.fgDevice)===intent.device&&state.view===intent.view&&state.systemTab===intent.tab&&document.getElementById('maintenance-dialog')?.open;}
 function maintenanceOpen(mode){
- if(maintenanceSaving||document.documentElement.dataset.userRole!=='admin'||!['paused','normal'].includes(mode))return;
+ if(maintenanceReadOnly()||maintenanceSaving||document.documentElement.dataset.userRole!=='admin'||!['paused','normal'].includes(mode))return;
  const revision=maintenanceData?.request?.revision;if(!Number.isInteger(revision)||revision<1)return;
  let dialog=document.getElementById('maintenance-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='maintenance-dialog';dialog.className='maintenance-dialog';dialog.setAttribute('aria-labelledby','maintenance-dialog-title');document.body.append(dialog);dialog.addEventListener('cancel',event=>{if(maintenanceSaving)event.preventDefault();});dialog.addEventListener('close',()=>{if(dialog.open)return;maintenanceIntent=null;dialog.innerHTML='';});}
  const paused=mode==='paused';dialog.setAttribute('aria-describedby','maintenance-dialog-scope');maintenanceIntent={mode,revision,generation:++maintenanceContextGeneration,view:state.view,tab:state.systemTab,device:String(state.fgDevice)};

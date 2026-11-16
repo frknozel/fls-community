@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/management.php';
+require_once __DIR__.'/recovery-rehearsal.php';
 
 function maintenance_number(mixed $value,int $minimum=0,int $maximum=4294967295): ?int {
  if(!is_string($value)&&!is_int($value))return null;
@@ -14,6 +15,10 @@ function maintenance_time(mixed $value): ?string {
 function maintenance_snapshot(bool $public=false): array {
  $result=['schema'=>1,'available'=>false,'fresh'=>false,'state'=>'unknown','request'=>['requested_mode'=>null,'revision'=>null,'requested_at'=>null,'requested_by'=>null],
  'worker'=>['version'=>null,'applied_revision'=>null,'attempted_revision'=>null,'collector_state'=>'unknown','marker_present'=>null,'checked_at'=>null,'applied_at'=>null,'error_code'=>'','age_seconds'=>null]];
+ if(fls_recovery_rehearsal()){
+  $result['state']='rehearsal';$result+=['rehearsal'=>true,'read_only'=>true,'reason'=>'recovery_rehearsal','can_control'=>false];
+  if($public)unset($result['request']['requested_by']);return $result;
+ }
  try{
   $r=query('SELECT requested_mode,revision,requested_at,requested_by FROM maintenance_requests WHERE id=1')[0]??null;
   $s=query('SELECT version,applied_revision,attempted_revision,collector_state,marker_present,checked_at,applied_at,error_code FROM maintenance_state WHERE id=1')[0]??null;
@@ -43,6 +48,7 @@ function maintenance_snapshot(bool $public=false): array {
  if($public)unset($result['request']['requested_by']);return $result;
 }
 function maintenance_save(array $input): array {
+ fls_recovery_require_writable();
  foreach($input as $key=>$value)if(!in_array($key,['requested_mode','revision','_csrf'],true))throw new ManagementError('Bakım isteğinde bilinmeyen alan var.');
  $mode=$input['requested_mode']??null;$rawRevision=$input['revision']??null;$revision=(is_int($rawRevision)||is_string($rawRevision)&&preg_match('/^[1-9][0-9]{0,9}$/D',$rawRevision))?maintenance_number($rawRevision,1,4294967294):null;
  if(!is_string($mode)||!in_array($mode,['normal','paused'],true)||$revision===null)throw new ManagementError('Bakım modu veya sürüm numarası geçersiz.');

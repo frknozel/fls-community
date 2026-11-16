@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/recovery-rehearsal.php';
 require_once __DIR__.'/fortigate.php';
 date_default_timezone_set('Europe/Istanbul');
 // Only the private CLI worker can skip HTTP sessions or select its read-only DB credential.

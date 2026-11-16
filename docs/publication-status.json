@@ -15,7 +15,7 @@
   "support_profile": "Ubuntu 24.04 amd64; plain ext4 root; verified WWN/WWID/serial",
   "pending": [
     "independent_ingestion_queue_error_and_data_completeness_acceptance",
-    "independent_single_disk_restore_reboot_acceptance",
+    "independent_rehearsal_ui_fix_release_acceptance",
     "optional_provider_sdk_setup_and_acceptance",
     "independent_missing_depot_fail_closed_acceptance"
   ],
@@ -72,7 +72,8 @@
     "uploaded_backup_signing_and_tls_key_pairs": "passed_read_only_inspection",
     "uploaded_backup_hybrid_mount_metadata": "physical_depot_mount_unit_missing",
     "single_disk_restore_contract_review": "passed_static_review_and_user_confirmed_rehearsal",
-    "single_disk_restore_reboot": "pending"
+    "single_disk_restore_reboot": "user_confirmed",
+    "single_disk_restore_rehearsal_ui": "legacy_state_invalid_and_unapplied_collection_start_observed"
   },
   "previous_candidate_vm_checks": {
     "release_tag": "v0.76.0-rc.5",
@@ -139,7 +140,32 @@
     "service_health": "user_confirmed_mariadb_php83_fpm_rehearsal_web_active_zero_failed",
     "ingestion_services": "user_confirmed_collector_and_indexer_masked",
     "storage": "user_confirmed_system_root_new_target_identity",
-    "reboot_acceptance": "pending",
-    "production_activation": "not_performed"
+    "reboot_acceptance": "user_confirmed",
+    "production_activation": "not_performed",
+    "post_reboot_wizard": "user_confirmed_temporary_8444_wizard_stopped",
+    "post_reboot_administrator_login": "user_confirmed_persistent_8443_panel",
+    "post_reboot_service_health": "user_confirmed_mariadb_php83_fpm_rehearsal_web_active_zero_failed",
+    "post_reboot_ingestion_services": "user_confirmed_collector_and_indexer_masked",
+    "post_reboot_storage": "user_confirmed_same_target_identity_system_root",
+    "restored_configuration": "user_confirmed_users_and_device_settings_present",
+    "historical_logs": "user_confirmed_absent",
+    "collection": "user_confirmed_paused"
+  },
+  "rehearsal_ui_followup": {
+    "observed_release_tag": "v0.76.0-rc.6",
+    "disk_state_code": "state_invalid",
+    "root_cause": "masked_inventory_worker_with_empty_restored_state",
+    "collection_start": "request_queued_but_not_applied_by_masked_worker",
+    "storage_failure": "not_indicated_by_verified_storage_and_service_checks",
+    "source_fix": "trusted_fastcgi_rehearsal_context_read_only_snapshots_api_guard_and_disabled_controls",
+    "fresh_disk_inventory_claimed": false,
+    "release_fix_status": "unreleased_source_only",
+    "current_signed_assets_unchanged": true,
+    "current_restored_vm_changed_by_followup": false,
+    "source_vm_or_production_changed_by_followup": false,
+    "legacy_backup_application_files_preserved": true,
+    "legacy_backup_ui_fix_applied_automatically": false,
+    "independent_fix_acceptance": "pending_new_release_and_backup",
+    "source_checks": "passed_offline_unit_browser_contracts_and_independent_review"
   }
 }
