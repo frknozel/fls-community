@@ -59,6 +59,11 @@ tamamlandığını doğrular, ardından kurulu runtime yayımlayıcısını ça�
 Kaynak sunucuya paket kurmaz veya servis başlatıp durdurmaz. Bu bağımsız araç
 geliştirme kaynağında yayımlanır; imzalı RC6 kurulum paketine eklenmiş değildir.
 
+RC6 kabul denemesinde bu araçla 173 paket ve yaklaşık 85 MiB çevrimdışı runtime
+hazırlanması kullanıcı tarafından doğrulandı. Kaynakta kurulu paketler, uygulama
+dosyaları ve servisler değiştirilmedi. Ayrı hedefte tam geri yükleme kabulü
+henüz tamamlanmadı.
+
 Araç yalnız **kurulu Community v0.76.0-rc.6** kaynağını kabul eder; sürüm makbuzunu,
 kaynak envanterini ve kullandığı yardımcıların hash'lerini doğrular. Aracı
 **çalışan Community kaynak VM'de** çalıştırın. Yeni kurtarma hedefinde
