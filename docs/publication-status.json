@@ -105,5 +105,13 @@
     "release_fix_status": "unreleased_source_only",
     "current_signed_assets_unchanged": true,
     "full_restore_acceptance": "pending"
+  },
+  "recovery_package_preparation": {
+    "available_in_public_source": true,
+    "signed_rc6_assets_unchanged": true,
+    "execution_host": "installed_community_rc6_source_vm",
+    "source_preparation_acceptance": "pending",
+    "independent_full_restore_acceptance": "pending",
+    "source_packages_installed": false
   }
 }

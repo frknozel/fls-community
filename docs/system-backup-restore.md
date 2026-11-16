@@ -51,8 +51,35 @@ anahtarını içermez. Panelin bu kiti verebilmesi için çevrimdışı bağıml
 hazırlamaz; kit hazır değilse panel işlemi reddeder. Bu durum logsuz yedek
 oluşturmayı veya dosyasını indirmeyi engellemez.
 
-Kaynakla uyumlu Ubuntu 24.04 amd64 paketlerini, bütün gerekli `.deb`
-bağımlılıklarıyla birlikte güvenilir bir root dizininde toplayın. Paket listesini
+İnternete erişebilen Community kaynak VM'de [paket hazırlama aracını](../tools/prepare-recovery-packages.py)
+ayrı bir dosya olarak çalıştırabilirsiniz. Bu araç kurulu FLS dosyalarını
+değiştirmez; gerekli paketleri özel bir çalışma dizinine indirir, yalnız yerel
+depo kullanan ve boş paket durumuyla çalışan APT simülasyonunda bağımlılıkların
+tamamlandığını doğrular, ardından kurulu runtime yayımlayıcısını çağırır.
+Kaynak sunucuya paket kurmaz veya servis başlatıp durdurmaz. Bu bağımsız araç
+geliştirme kaynağında yayımlanır; imzalı RC6 kurulum paketine eklenmiş değildir.
+
+Araç yalnız **kurulu Community v0.76.0-rc.6** kaynağını kabul eder; sürüm makbuzunu,
+kaynak envanterini ve kullandığı yardımcıların hash'lerini doğrular. Aracı
+**çalışan Community kaynak VM'de** çalıştırın. Yeni kurtarma hedefinde
+çalıştırılmaz; hedefte FLS kurulu bulunmamalıdır.
+`prepare-recovery-packages.py` dosyasını kaynak VM'ye indirdikten sonra:
+
+```sh
+sudo python3 prepare-recovery-packages.py --plan &&
+sudo python3 prepare-recovery-packages.py --prepare
+```
+
+Ön kontrol indirme veya runtime yayımlaması yapmaz. İndirme veya bağımlılık
+doğrulaması başarısızsa runtime yayımlanmaz; sabit hata kodunu ve özel günlük
+yolunu saklayın. Başarılı hazırlıktan sonra kaynak panelde doğrulanmış yedeğin
+**Yedekten geri dön**
+işlemiyle başlangıç kitini indirin. Yedek, kit ve varsa ayrı `age` anahtarı
+kurtarma hedefinde birlikte kullanılacaktır.
+
+Elle veya çevrimdışı hazırlık tercih ederseniz kaynakla uyumlu Ubuntu 24.04 amd64
+paketlerini, bütün gerekli `.deb` bağımlılıklarıyla birlikte güvenilir bir root
+dizininde toplayın. Paket listesini
 önce kurulu aracın salt okunur planından öğrenin:
 
 ```sh
@@ -82,6 +109,17 @@ sabit disk kimliği gerekir. LVM/RAID kökü bu akışta desteklenmez. Hedefte F
 uygulama veritabanı veya önceki yarım kurtarma durumu bulunmamalıdır. Hedefin
 boş alanı hem açılacak paket hem geri yükleme çalışması için yeterli olmalıdır;
 sihirbaz ayrıca alan denetimi yapar.
+
+Kurtarma akışı ESXi gerektirmez; VirtualBox hedefi de aynı işletim sistemi,
+ext4 ve disk kimliği kontrollerinden geçmelidir. WWN bulunmadığında güvenilir
+seri numarası kullanılabilir. İlk alan kontrolü en az 8 GiB boşluk ister;
+başlangıç ayrıca yedeğin üç katı, runtime paketinin dört katı ve 1 GiB pay
+hesabını denetler. Açılmış yedek için ek alan kontrolü de vardır. Normal
+kurucunun 40 GiB boş alan koşulu bu kurtarma sınırının yerine geçmez. Küçük,
+logsuz bir yedek için 16 GiB boş alan uygun olabilir; gerçek kit boyutu ve
+hedef ön kontrolü sonucu belirler. VirtualBox'ta temiz Ubuntu kurulumu sonrası
+snapshot alın; kaynak FLS'ye ait IP adresini hedefe vermeyin veya FortiGate'ten
+hedefe log yönlendirmeyin.
 
 1. Yeni Ubuntu'yu kurun ve temiz snapshot alın. Hedefi kaynakla çakışmayan bir IP
    adresinde ve yalıtılmış test ağında tutun. FortiGate'ten bu hedefe log yönlendirmeyin.
