@@ -100,7 +100,7 @@ class ReleaseBuilderFixtures(unittest.TestCase):
 
     def build(self):
         with patch.object(release.subprocess, 'run', side_effect=self.fake_sign), contextlib.redirect_stdout(io.StringIO()):
-            return release.build(self.source, self.components, self.destination, 'v0.76.0-rc.6', self.key)
+            return release.build(self.source, self.components, self.destination, 'v0.76.0-rc.7', self.key)
 
     def test_full_builder_creates_exact_three_field_inventory_and_pinned_assets(self):
         outer = self.build()
@@ -296,7 +296,7 @@ class CompleteBootstrapFixtures(unittest.TestCase):
             'dpkg': '#!/bin/sh\n[ "$1" = "--print-architecture" ] || exit 97\nprintf amd64\n',
             'mktemp': '#!/usr/bin/python3\nimport os\nfrom pathlib import Path\np=Path(os.environ["FLS_FIXTURE_WORK"]);p.mkdir(mode=0o700);print(p)\n',
             'curl': '#!/usr/bin/python3\nimport os,sys,shutil\nfrom pathlib import Path\na=sys.argv[1:];name=a[-1].rsplit("/",1)[-1]\n'
-                    'assert name in {"release.json","release.json.sig","fls-community-0.76.0-rc.6-linux-amd64.tar.gz"}\n'
+                    'assert name in {"release.json","release.json.sig","fls-community-0.76.0-rc.7-linux-amd64.tar.gz"}\n'
                     'with open(os.environ["FLS_FIXTURE_CALLS"],"a") as log:log.write(name+"\\n")\n'
                     'shutil.copyfile(Path(os.environ["FLS_FIXTURE_REMOTE"])/name,a[a.index("--output")+1])\n',
         }
@@ -307,10 +307,10 @@ class CompleteBootstrapFixtures(unittest.TestCase):
             'FLS_FIXTURE_CALLS': str(self.calls), 'FLS_FIXTURE_PROOF': str(self.proof)}
         installer = (b'import os\nfrom pathlib import Path\n'
                      b'Path(os.environ["FLS_FIXTURE_PROOF"]).write_text("fixture installer reached")\n')
-        self.package = self.remote / 'fls-community-0.76.0-rc.6-linux-amd64.tar.gz'
+        self.package = self.remote / 'fls-community-0.76.0-rc.7-linux-amd64.tar.gz'
         self.package.write_bytes(tar_bytes([('fls-community/bin/fls-install.py', installer)]))
         self.manifest = {'schema': 'fls-community-release-v1', 'version': '0.76.0',
-                         'tag': 'v0.76.0-rc.6', 'filename': self.package.name,
+                         'tag': 'v0.76.0-rc.7', 'filename': self.package.name,
                          'bytes': self.package.stat().st_size, 'sha256': release.digest(self.package)}
         self.sign()
 

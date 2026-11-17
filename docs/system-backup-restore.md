@@ -65,8 +65,9 @@ ayrı bir dosya olarak çalıştırabilirsiniz. Bu araç kurulu FLS dosyaların�
 değiştirmez; gerekli paketleri özel bir çalışma dizinine indirir, yalnız yerel
 depo kullanan ve boş paket durumuyla çalışan APT simülasyonunda bağımlılıkların
 tamamlandığını doğrular, ardından kurulu runtime yayımlayıcısını çağırır.
-Kaynak sunucuya paket kurmaz veya servis başlatıp durdurmaz. Bu bağımsız araç
-geliştirme kaynağında yayımlanır; imzalı RC6 kurulum paketine eklenmiş değildir.
+Kaynak sunucuya paket kurmaz veya servis başlatıp durdurmaz. Araç RC7 kurulum
+paketinde bulunur; eski RC6 için ayrı dosya olarak da çalıştırılabilir. İmzalı
+RC6 paketi bu aracı içermez ve geriye dönük değiştirilmemiştir.
 
 RC6 kabul denemesinde bu araçla 173 paket ve yaklaşık 85 MiB çevrimdışı runtime
 hazırlanması kullanıcı tarafından doğrulandı. Kaynakta kurulu paketler, uygulama
@@ -74,11 +75,23 @@ dosyaları ve servisler değiştirilmedi. Bu paketle ayrı VirtualBox hedefindek
 tek diskli kurtarma provası ve yeniden başlatma kontrolü tamamlandı. Bu kabul,
 prova arayüzündeki aşağıda açıklanan RC6 durum gösterimi sorununu kapsamaz.
 
-Araç yalnız **kurulu Community v0.76.0-rc.6** kaynağını kabul eder; sürüm makbuzunu,
-kaynak envanterini ve kullandığı yardımcıların hash'lerini doğrular. Aracı
+Araç **kurulu Community 0.76.0 / şema 47** kaynağında çalışır. RC6'nın sabit
+envanter parmak izi desteği korunur. Yeni kurulumlarda root sahipli kurulum
+makbuzunun parmak izi gerçek kaynak envanteriyle eşleşmeli; envanterdeki bütün
+dosyaların içeriği ve izinleri doğrulanmalıdır. Çalıştırılan iki yardımcı ayrıca
+araçtaki bağımsız, sabit hash'lerle eşleşmelidir. Plan çıktısı
+`source_version` ve `source_inventory_sha256` alanlarıyla doğrulanan kaynağı
+gösterir; RC7 için gerçek VM kabulü ayrıca tamamlanmalıdır. Aracı
 **çalışan Community kaynak VM'de** çalıştırın. Yeni kurtarma hedefinde
 çalıştırılmaz; hedefte FLS kurulu bulunmamalıdır.
-`prepare-recovery-packages.py` dosyasını kaynak VM'ye indirdikten sonra:
+RC7 kaynak VM'de kurulu aracı çalıştırın:
+
+```sh
+sudo python3 /var/www/fls/tools/prepare-recovery-packages.py --plan &&
+sudo python3 /var/www/fls/tools/prepare-recovery-packages.py --prepare
+```
+
+RC6'da `prepare-recovery-packages.py` dosyasını kaynak VM'ye ayrı indirip çalıştırın:
 
 ```sh
 sudo python3 prepare-recovery-packages.py --plan &&

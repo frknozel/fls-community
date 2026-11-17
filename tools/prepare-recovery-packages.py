@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Prepare RC6 recovery downloads on its source VM; never install host packages.
+"""Prepare Community recovery downloads on its source VM; never install packages.
 
 The default is a read-only plan. --prepare downloads authenticated packages,
 checks their offline dependency closure and publishes the panel's runtime.
@@ -25,6 +25,10 @@ STATE = Path('/etc/fls/release-state.json')
 DESTINATION = Path('/var/lib/fls-recovery-download/recovery-runtime')
 VERSION = '0.76.0'
 RELEASE_SHA256 = 'cceede063de131053e064b4ebe2315f7b2c516212b492659715a239c626a11ed'
+# RC6 predates this bundled tool. Keep its independently pinned standalone
+# profile; newer installations bind the complete inventory to the root-owned
+# receipt written after authenticated installation. Never embed a new release's
+# inventory hash here: that inventory includes this file itself.
 HELPERS = {
     'recovery-drill-prepare.py': '8b0b3429d2ff020a55af56aee081e27916b6b71487b7a10d1e80829dd3670828',
     'prepare-recovery-runtime.py': '6ec81662a267e8a7dc9af7315d8b64151d79308aaf7c3a36d550ffb74c8afc99',
@@ -75,7 +79,26 @@ def trusted_read(path, maximum=4 * 1024 ** 2):
         return data
 
 
-def source_modules(app=APP, state=STATE, os_release=Path('/usr/lib/os-release')):
+def inventory_rows(inventory):
+    require(isinstance(inventory, dict) and set(inventory) == {'schema', 'version', 'files'}
+            and inventory.get('schema') == 'fls-community-release-files-v1'
+            and inventory.get('version') == VERSION and isinstance(inventory.get('files'), list)
+            and 0 < len(inventory['files']) <= 4096, 'release_inventory_invalid')
+    rows = {}
+    for row in inventory['files']:
+        require(isinstance(row, dict) and set(row) == {'path', 'sha256', 'mode'}, 'release_inventory_invalid')
+        name = row['path']
+        require(isinstance(name, str) and re.fullmatch(r'[A-Za-z0-9._@+/-]+', name)
+                and not name.startswith('/') and all(part not in ('', '.', '..', '.git') for part in name.split('/'))
+                and name != 'deploy/release-files.json' and name not in rows
+                and isinstance(row['sha256'], str) and re.fullmatch(r'[a-f0-9]{64}', row['sha256'])
+                and type(row['mode']) is int and row['mode'] in (644, 755), 'release_inventory_invalid')
+        rows[name] = row
+    require('VERSION' in rows and all('bin/' + name in rows for name in HELPERS), 'release_inventory_invalid')
+    return rows
+
+
+def source_modules(app=APP, state=STATE, os_release=Path('/usr/lib/os-release'), *, include_identity=False):
     require(os.geteuid() == 0, 'root_required')
     release = dict(line.split('=', 1) for line in trusted_read(os_release).decode().splitlines() if '=' in line)
     require(release.get('ID', '').strip('"') == 'ubuntu'
@@ -85,14 +108,23 @@ def source_modules(app=APP, state=STATE, os_release=Path('/usr/lib/os-release'))
     require(isinstance(receipt, dict) and receipt.get('schema') == 1
             and receipt.get('edition') == 'community' and receipt.get('version') == VERSION
             and receipt.get('schema_version') == 47
-            and receipt.get('release_sha256') == RELEASE_SHA256, 'installed_community_rc6_required')
+            and isinstance(receipt.get('release_sha256'), str)
+            and re.fullmatch(r'[a-f0-9]{64}', receipt['release_sha256']), 'installed_community_release_required')
+    installed_sha256 = receipt['release_sha256']
     require(trusted_read(app / 'VERSION').decode().strip() == VERSION, 'source_version_mismatch')
     inventory_bytes = trusted_read(app / 'deploy/release-files.json', 16 * 1024 ** 2)
-    require(hashlib.sha256(inventory_bytes).hexdigest() == RELEASE_SHA256, 'release_inventory_changed')
+    require(hashlib.sha256(inventory_bytes).hexdigest() == installed_sha256, 'release_inventory_changed')
     inventory = json.loads(inventory_bytes)
-    require(isinstance(inventory, dict) and inventory.get('schema') == 'fls-community-release-files-v1'
-            and inventory.get('version') == VERSION and isinstance(inventory.get('files'), list), 'release_inventory_invalid')
-    rows = {row['path']: row for row in inventory['files'] if isinstance(row, dict) and isinstance(row.get('path'), str)}
+    rows = inventory_rows(inventory)
+    if installed_sha256 != RELEASE_SHA256:
+        # Root-owned receipts are the installed trust anchor. Check every
+        # listed byte and mode before importing even the separately pinned
+        # helpers, so an altered installation cannot prepare a new runtime.
+        for name, row in rows.items():
+            path = app / name
+            data = trusted_read(path, 512 * 1024 ** 2)
+            require(hashlib.sha256(data).hexdigest() == row['sha256']
+                    and stat.S_IMODE(path.stat().st_mode) == int(str(row['mode']), 8), 'release_file_changed')
     modules = []
     for name, expected in HELPERS.items():
         path = app / 'bin' / name
@@ -109,7 +141,9 @@ def source_modules(app=APP, state=STATE, os_release=Path('/usr/lib/os-release'))
     trusted_directory(DESTINATION.parent)
     if DESTINATION.exists() or DESTINATION.is_symlink():
         trusted_directory(DESTINATION)
-    return download, runtime
+    modules = (download, runtime)
+    identity = {'source_version': VERSION, 'source_inventory_sha256': installed_sha256}
+    return (modules, identity) if include_identity else modules
 
 
 def write_private(path, text):
@@ -220,11 +254,11 @@ def main(argv=None):
     actions.add_argument('--prepare', action='store_true')
     options = parser.parse_args(argv)
     try:
+        modules, identity = source_modules(include_identity=True)
         if options.prepare:
-            result = prepare()
+            result = {**prepare(modules), **identity}
         else:
-            source_modules()
-            result = {'mode': 'read-only-plan', 'source_release': 'v0.76.0-rc.6',
+            result = {'mode': 'read-only-plan', **identity,
                       'required_packages': [*ROOTS, 'age'], 'destination': str(DESTINATION),
                       'host_packages_installed': False, 'application_files_changed': False, 'services_changed': False}
         print(json.dumps(result, sort_keys=True))

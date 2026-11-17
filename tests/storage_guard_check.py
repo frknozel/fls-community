@@ -303,6 +303,34 @@ class HybridStorageGuard(unittest.TestCase):
         with self.assertRaises(guard.StorageError):
             guard.storage_state()
 
+    def test_read_only_depot_superblock_fails_closed_and_recovers(self):
+        original = self.mountinfo.read_text()
+        self.mountinfo.write_text(original.replace('/dev/fake rw\n', '/dev/fake ro\n'))
+        with self.assertRaisesRegex(guard.StorageError, 'depot filesystem is read-only'):
+            guard.storage_state()
+        self.mountinfo.write_text(original)
+        self.assertEqual(guard.storage_state()['mode'], 'hybrid')
+
+    def test_read_only_service_depot_mount_allows_writable_superblock(self):
+        # ProtectSystem=strict protects the depot while operational binds can
+        # remain writable. It does not change ext4 superblock access flags.
+        self.mountinfo.write_text(self.mountinfo.read_text().replace(
+            str(self.depot) + ' rw - ext4 ', str(self.depot) + ' ro - ext4 '))
+        self.assertEqual(guard.storage_state()['mode'], 'hybrid')
+
+    def test_missing_or_ambiguous_filesystem_access_metadata_fails_closed(self):
+        original = self.mountinfo.read_text()
+        for options in ('rw,ro', 'nodev'):
+            with self.subTest(options=options):
+                self.mountinfo.write_text(original.replace('/dev/fake rw\n', '/dev/fake ' + options + '\n'))
+                with self.assertRaises(guard.StorageError):
+                    guard.storage_state()
+        # Optional fields must not disguise a missing superblock-options field.
+        self.mountinfo.write_text(original.replace(' rw - ext4 /dev/fake rw\n',
+                                                    ' rw shared:7 - ext4 /dev/fake\n'))
+        with self.assertRaises(guard.StorageError):
+            guard.storage_state()
+
     def test_systemd_read_write_path_stacked_mounts_are_allowed(self):
         target = self.data / 'raw'
         lower = self.mountinfo.read_text().splitlines()[1].split()[0]

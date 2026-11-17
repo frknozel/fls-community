@@ -2,7 +2,7 @@
   "schema": 1,
   "edition": "community",
   "version": "0.76.0",
-  "release_tag": "v0.76.0-rc.6",
+  "release_tag": "v0.76.0-rc.7",
   "license": "Apache-2.0",
   "stage": "release-candidate-partial-independent-vm-acceptance",
   "automatic_installation_available": true,
@@ -17,7 +17,8 @@
     "independent_ingestion_queue_error_and_data_completeness_acceptance",
     "independent_rehearsal_ui_fix_release_acceptance",
     "optional_provider_sdk_setup_and_acceptance",
-    "independent_missing_depot_fail_closed_acceptance"
+    "independent_missing_depot_fail_closed_acceptance",
+    "queue_storage_write_error_record_loss_fix"
   ],
   "independent_vm_checks": {
     "clean_install": "user_confirmed",
@@ -36,9 +37,9 @@
     "ingestion_data_completeness": "pending",
     "reboot_service_health": "user_confirmed"
   },
-  "checks_updated_on": "2026-11-16",
+  "checks_updated_on": "2026-11-17",
   "independent_vm_checks_release_tag": "v0.76.0-rc.4",
-  "latest_candidate_clean_vm_acceptance": "partial_user_confirmed",
+  "latest_candidate_clean_vm_acceptance": "pending",
   "system_backup_create_failure": {
     "release_tag": "v0.76.0-rc.4",
     "code": "recovery_document_missing",
@@ -47,33 +48,17 @@
     "fix_acceptance": "user_confirmed_create_and_download"
   },
   "latest_candidate_vm_checks": {
-    "release_tag": "v0.76.0-rc.6",
-    "clean_install": "user_confirmed",
-    "real_fortigate_log_ingestion": "user_confirmed",
-    "system_backup_create_and_download": "user_confirmed_after_storage_migration",
-    "reboot_and_intake_continuity": "user_confirmed_after_storage_migration",
+    "release_tag": "v0.76.0-rc.7",
+    "clean_install": "pending",
+    "real_fortigate_log_ingestion": "pending",
+    "system_backup_create_and_download": "pending",
+    "reboot_and_intake_continuity": "pending",
+    "second_disk_migration_and_reboot": "pending",
+    "full_restore": "pending",
+    "rehearsal_ui_fix": "pending_new_release_backup",
     "queue_and_write_error_acceptance": "pending",
     "ingestion_data_completeness": "pending",
-    "second_disk_migration_and_reboot": "user_confirmed",
-    "full_restore": "user_confirmed_single_disk_rehearsal",
-    "second_disk_migration": "user_confirmed_panel_completed",
-    "post_migration_storage_validation": "user_confirmed_read_only_hybrid_system_queue",
-    "post_migration_operational_bind_mounts": "user_confirmed_six_ext4_bind_paths",
-    "post_migration_service_health": "user_confirmed_five_active_zero_failed",
-    "post_migration_log_ingestion": "user_confirmed_after_panel_reboot",
-    "storage_ui_refresh_stability": "user_confirmed_open_details_and_scroll_preserved",
-    "post_migration_reboot_service_health": "user_confirmed_five_active_zero_failed",
-    "post_migration_collector_identity_storage_validation": "user_confirmed_syslog_adm_hybrid_system_queue",
-    "post_migration_reboot_bind_mounts": "user_confirmed_six_ext4_bind_paths",
-    "missing_depot_fail_closed": "pending",
-    "two_disk_working_snapshot": "user_confirmed",
-    "uploaded_backup_file_and_source_integrity": "passed_read_only_inspection",
-    "uploaded_backup_sql_scope": "passed_read_only_inspection",
-    "uploaded_backup_signing_and_tls_key_pairs": "passed_read_only_inspection",
-    "uploaded_backup_hybrid_mount_metadata": "physical_depot_mount_unit_missing",
-    "single_disk_restore_contract_review": "passed_static_review_and_user_confirmed_rehearsal",
-    "single_disk_restore_reboot": "user_confirmed",
-    "single_disk_restore_rehearsal_ui": "legacy_state_invalid_and_unapplied_collection_start_observed"
+    "missing_depot_fail_closed": "pending"
   },
   "previous_candidate_vm_checks": {
     "release_tag": "v0.76.0-rc.5",
@@ -104,9 +89,10 @@
     "impact": "original_hybrid_layout_reconstruction_incomplete",
     "supported_single_disk_rehearsal": "does_not_use_source_mount_units",
     "source_fix": "include_depot_unit_in_future_backup_scope",
-    "release_fix_status": "unreleased_source_only",
-    "current_signed_assets_unchanged": true,
-    "full_restore_acceptance": "user_confirmed_single_disk_rehearsal_only"
+    "release_fix_status": "included_in_rc7_candidate",
+    "full_restore_acceptance": "user_confirmed_single_disk_rehearsal_only",
+    "fix_release_tag": "v0.76.0-rc.7",
+    "rc6_signed_assets_unchanged": true
   },
   "recovery_package_preparation": {
     "available_in_public_source": true,
@@ -160,13 +146,76 @@
     "storage_failure": "not_indicated_by_verified_storage_and_service_checks",
     "source_fix": "trusted_fastcgi_rehearsal_context_read_only_snapshots_api_guard_and_disabled_controls",
     "fresh_disk_inventory_claimed": false,
-    "release_fix_status": "unreleased_source_only",
-    "current_signed_assets_unchanged": true,
+    "release_fix_status": "included_in_rc7_candidate",
     "current_restored_vm_changed_by_followup": false,
     "source_vm_or_production_changed_by_followup": false,
     "legacy_backup_application_files_preserved": true,
     "legacy_backup_ui_fix_applied_automatically": false,
     "independent_fix_acceptance": "pending_new_release_and_backup",
-    "source_checks": "passed_offline_unit_browser_contracts_and_independent_review"
+    "source_checks": "passed_offline_unit_browser_contracts_and_independent_review",
+    "fix_release_tag": "v0.76.0-rc.7",
+    "rc6_signed_assets_unchanged": true
+  },
+  "last_accepted_candidate_vm_checks": {
+    "release_tag": "v0.76.0-rc.6",
+    "clean_install": "user_confirmed",
+    "real_fortigate_log_ingestion": "user_confirmed",
+    "system_backup_create_and_download": "user_confirmed_after_storage_migration",
+    "reboot_and_intake_continuity": "user_confirmed_after_storage_migration",
+    "queue_and_write_error_acceptance": "pending",
+    "ingestion_data_completeness": "pending",
+    "second_disk_migration_and_reboot": "user_confirmed",
+    "full_restore": "user_confirmed_single_disk_rehearsal",
+    "second_disk_migration": "user_confirmed_panel_completed",
+    "post_migration_storage_validation": "user_confirmed_read_only_hybrid_system_queue",
+    "post_migration_operational_bind_mounts": "user_confirmed_six_ext4_bind_paths",
+    "post_migration_service_health": "user_confirmed_five_active_zero_failed",
+    "post_migration_log_ingestion": "user_confirmed_after_panel_reboot",
+    "storage_ui_refresh_stability": "user_confirmed_open_details_and_scroll_preserved",
+    "post_migration_reboot_service_health": "user_confirmed_five_active_zero_failed",
+    "post_migration_collector_identity_storage_validation": "user_confirmed_syslog_adm_hybrid_system_queue",
+    "post_migration_reboot_bind_mounts": "user_confirmed_six_ext4_bind_paths",
+    "missing_depot_fail_closed": "pending",
+    "two_disk_working_snapshot": "user_confirmed",
+    "uploaded_backup_file_and_source_integrity": "passed_read_only_inspection",
+    "uploaded_backup_sql_scope": "passed_read_only_inspection",
+    "uploaded_backup_signing_and_tls_key_pairs": "passed_read_only_inspection",
+    "uploaded_backup_hybrid_mount_metadata": "physical_depot_mount_unit_missing",
+    "single_disk_restore_contract_review": "passed_static_review_and_user_confirmed_rehearsal",
+    "single_disk_restore_reboot": "user_confirmed",
+    "single_disk_restore_rehearsal_ui": "legacy_state_invalid_and_unapplied_collection_start_observed"
+  },
+  "stable_release_blockers": [
+    "queue_storage_enospc_record_loss"
+  ],
+  "isolated_failure_checks": {
+    "checked_on": "2026-11-17",
+    "scope": "temporary_filesystems_and_loopback_child_processes",
+    "production_modified": false,
+    "depot_missing_identity_and_bind_mismatch": "passed_guard_fixtures",
+    "depot_read_only_superblock": "fixed_guard_fixtures_passed",
+    "service_namespace_read_only_mount_writable_superblock": "accepted_guard_fixtures_passed",
+    "raw_output_write_error_restart": {
+      "sent": 96,
+      "recovered_unique": 96,
+      "duplicates": 0,
+      "complete_raw_bytes_verified": true,
+      "physical_output_order_guaranteed": false
+    },
+    "queue_storage_write_error": {
+      "status": "failed_record_loss_reproduced",
+      "injection": "temporary_queue_dev_full_enospc",
+      "imtcp_submitted": 96,
+      "queue_enqueued_counter": 96,
+      "recovered_after_repair_restart": 0,
+      "listener_remained_open": true,
+      "fixed_in_rc7": false
+    },
+    "rehearsal_browser": {
+      "scenarios": 10,
+      "checks": 106,
+      "passed": true
+    },
+    "external_vm_acceptance": "pending"
   }
 }

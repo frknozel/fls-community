@@ -2,9 +2,11 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.6 bir test sürümüdür.** Ayrı ESXi / Ubuntu 24.04 VM'de temiz RC6 kurulumu, gerçek FortiGate log alımı ve panelden 100 GiB ikinci diske taşıma kullanıcı tarafından doğrulandı. Taşıma sonrası panelden yeniden başlatmada FLS açıldı ve loglar otomatik gelmeye devam etti. Alıcının `syslog:adm` hesabıyla salt okunur depolama denetimi geçti; ayrı ext4 depo, altı log/yedek bağlantısı ve sistem diskinde kalan kuyruk doğrulandı. Beş temel servis çalışıyor ve başarısız systemd birimi yok.
+**0.76.0-rc.7 bir test sürümüdür.** Kurtarma provası panelindeki yanlış disk hatası ve uygulanmayacak log alımı düğmeleri düzeltilmiştir. Prova paneli otomatik işlerin kapalı olduğunu açıklar; ilgili API isteklerini kuyruğa yazmadan reddeder. Gelecekteki sistem yedekleri, varsa ayrı fiziksel depo mount tanımını da kapsar. Gerçek depo dosya sistemi salt okunur olduğunda depolama ön denetimi artık bunu reddeder.
 
-RC6, RC5'te taşıma sırasında görülen üst dizin izin hatasını giderir. Disk sayfasında açık ayrıntıların ve kaydırma konumunun otomatik yenilemelerde korunduğu da kullanıcı tarafından doğrulandı. İki diskli düzende logsuz sistem yedeği oluşturulup indirildi; dosya/kaynak bütünlüğü, SQL kapsamı ve anahtar eşleşmeleri salt okunur incelendi. Yedeğin özgün hibrit düzeni birebir yeniden kurma sınırı ve desteklenen tek diskli prova akışı [kurtarma kılavuzunda](docs/system-backup-restore.md) açıklanır. Kuyruk/yazım hataları, veri bütünlüğü ve ayrı cihazda tam kurtarma kabulü henüz tamamlanmadı. [Test adımları ve sınırlar](docs/installation.md).
+RC6'da ayrı Ubuntu VM üzerinde temiz kurulum, gerçek FortiGate log alımı, ikinci diske taşıma, yeniden başlatma sonrası alım ve logsuz yedek oluşturma doğrulandı. Bu yedek ayrı Ubuntu VM'ye tek diskte geri yüklendi; hesaplar ve ayarlar korundu, geçmiş loglar boş kaldı ve yeniden başlatmada prova paneli açıldı. Bu sonuçlar RC6'ya aittir. RC7'nin temiz kurulum ve yeni yedekle prova kabulü bekliyor. Depo kaybı, kuyruk/yazma hatası ve kayıt bütünlüğünün bağımsız VM kabulü de tamamlanmadı. [Test adımları ve sınırlar](docs/installation.md).
+
+**Bilinen kararlı sürüm engeli:** kuyruğun kendi dosyasına yazma `ENOSPC` hatası verdiğinde kayıt kaybı yalıtılmış deneyde yeniden üretildi. RC7 bu kuyruk hatasını düzeltmez; kayıpsız teslim garantisi vermez.
 
 ## Kurulum
 
@@ -16,7 +18,7 @@ Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ex
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates openssl python3
 curl --fail --show-error --location --proto '=https' \
-  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.6/install.sh \
+  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.7/install.sh \
   -o fls-install.sh
 sudo bash fls-install.sh --check
 ```

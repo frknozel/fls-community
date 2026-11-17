@@ -65,7 +65,8 @@ class SourceFixtures(unittest.TestCase):
         for name, data in self.helpers.items():
             (self.app / 'bin' / name).write_bytes(data)
         self.inventory = {'schema': 'fls-community-release-files-v1', 'version': tool.VERSION,
-                          'files': [{'path': 'bin/' + name, 'sha256': digest} for name, digest in self.hashes.items()]}
+                          'files': [{'path': 'bin/' + name, 'sha256': digest, 'mode': 644} for name, digest in self.hashes.items()]
+                          + [{'path': 'VERSION', 'sha256': hashlib.sha256((tool.VERSION + '\n').encode()).hexdigest(), 'mode': 644}]}
         self.inventory_bytes = json.dumps(self.inventory).encode()
         self.inventory_path = self.app / 'deploy/release-files.json'
         self.inventory_path.write_bytes(self.inventory_bytes)
@@ -94,7 +95,7 @@ class SourceFixtures(unittest.TestCase):
         # A receipt with the outer metadata hash must fail before trusted imports.
         self.receipt['release_sha256'] = hashlib.sha256(b'{"outer_release":true}').hexdigest()
         self.state.write_text(json.dumps(self.receipt))
-        with self.assertRaisesRegex(tool.PreparationError, 'installed_community_rc6_required'):
+        with self.assertRaisesRegex(tool.PreparationError, 'release_inventory_changed'):
             self.probe()
         self.receipt['release_sha256'] = self.inner_hash
         self.state.write_text(json.dumps(self.receipt))
@@ -108,7 +109,8 @@ class SourceFixtures(unittest.TestCase):
         specification.loader.exec_module(installer)
         for name in ['schema.sql', 'bin/product_config.py', 'bin/fls_storage.py', *['fixture-' + str(i) for i in range(6)]]:
             (self.app / name).write_bytes(b'fixture only; never executed\n')
-        rows = [{'path': path.relative_to(self.app).as_posix(), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+        rows = [{'path': path.relative_to(self.app).as_posix(), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                 'mode': 644}
                 for path in self.app.rglob('*') if path.is_file() and path != self.inventory_path]
         self.inventory_path.write_text(json.dumps({**self.inventory, 'files': rows}))
         with patch.object(installer.os, 'geteuid', return_value=os.getuid()):
@@ -116,15 +118,103 @@ class SourceFixtures(unittest.TestCase):
         self.assertEqual(authenticated['manifest_sha256'], hashlib.sha256(self.inventory_path.read_bytes()).hexdigest())
         self.receipt['release_sha256'] = authenticated['manifest_sha256']
         self.state.write_text(json.dumps(self.receipt))
-        with patch.object(tool, 'RELEASE_SHA256', authenticated['manifest_sha256']):
-            self.probe()
+        self.probe()
 
     def test_private_edition_or_wrong_version_is_rejected_before_staging(self):
         for key, value in [('edition', 'private'), ('version', '0.75.1'), ('schema_version', 46)]:
             receipt = {**self.receipt, key: value}
             self.state.write_text(json.dumps(receipt))
-            with self.subTest(key=key), self.assertRaisesRegex(tool.PreparationError, 'installed_community_rc6_required'):
+            with self.subTest(key=key), self.assertRaisesRegex(tool.PreparationError, 'installed_community_release_required'):
                 self.probe()
+
+    def rewrite_inventory_receipt(self):
+        data = json.dumps(self.inventory).encode()
+        self.inventory_path.write_bytes(data)
+        self.receipt['release_sha256'] = hashlib.sha256(data).hexdigest()
+        self.state.write_text(json.dumps(self.receipt))
+
+    def bundled_tool_inventory(self):
+        target = self.app / 'tools/prepare-recovery-packages.py'
+        target.parent.mkdir()
+        target.write_bytes((TREE / 'tools/prepare-recovery-packages.py').read_bytes())
+        self.inventory['files'].append({'path': 'tools/prepare-recovery-packages.py',
+            'sha256': hashlib.sha256(target.read_bytes()).hexdigest(), 'mode': 644})
+        self.rewrite_inventory_receipt()
+        return target
+
+    def test_bundled_tool_accepts_new_inventory_without_embedding_its_own_hash(self):
+        self.bundled_tool_inventory()
+        self.assertNotEqual(self.receipt['release_sha256'], tool.RELEASE_SHA256)
+        with patch.object(tool.subprocess, 'run', side_effect=AssertionError('host command attempted')):
+            modules, identity = tool.source_modules(self.app, self.state, self.os_release, include_identity=True)
+        self.assertEqual(identity, {'source_version': tool.VERSION,
+                                   'source_inventory_sha256': self.receipt['release_sha256']})
+        self.assertEqual(tuple(modules[0].GUEST_PACKAGES), tool.ROOTS)
+
+    def test_new_inventory_rejects_changed_nonhelper_bytes_and_modes_before_imports(self):
+        target = self.bundled_tool_inventory()
+        original = target.read_bytes()
+        for data, mode in ((original + b'\n', 0o644), (original, 0o755)):
+            target.write_bytes(data); target.chmod(mode)
+            with self.subTest(mode=mode), \
+                 patch.object(tool, 'exec', side_effect=AssertionError('helper import attempted'), create=True), \
+                 self.assertRaisesRegex(tool.PreparationError, 'release_file_changed'):
+                self.probe()
+
+    def test_new_inventory_cannot_repin_changed_helpers_through_root_receipt(self):
+        self.bundled_tool_inventory()
+        target = self.app / 'bin/recovery-drill-prepare.py'
+        target.write_bytes(target.read_bytes() + b'\n')
+        next(row for row in self.inventory['files'] if row['path'] == 'bin/recovery-drill-prepare.py')['sha256'] = hashlib.sha256(target.read_bytes()).hexdigest()
+        self.rewrite_inventory_receipt()
+        with patch.object(tool, 'exec', side_effect=AssertionError('helper import attempted'), create=True), \
+             self.assertRaisesRegex(tool.PreparationError, 'installed_helper_changed'):
+            self.probe()
+
+    def test_invalid_receipt_fingerprint_is_rejected_before_inventory_imports(self):
+        for value in (None, 123, 'A' * 64, 'a' * 63, 'a' * 65, 'a' * 64 + '\n'):
+            self.state.write_text(json.dumps({**self.receipt, 'release_sha256': value}))
+            with self.subTest(value=value), \
+                 patch.object(tool, 'exec', side_effect=AssertionError('helper import attempted'), create=True), \
+                 self.assertRaisesRegex(tool.PreparationError, 'installed_community_release_required'):
+                self.probe()
+
+    def test_writable_or_redirected_receipt_is_rejected_before_imports(self):
+        self.state.chmod(0o666)
+        with patch.object(tool, 'exec', side_effect=AssertionError('helper import attempted'), create=True), \
+             self.assertRaisesRegex(tool.PreparationError, 'trusted_file_unsafe'):
+            self.probe()
+        self.state.chmod(0o644)
+        other = self.base / 'other-receipt.json'
+        other.write_bytes(self.state.read_bytes())
+        self.state.unlink(); self.state.symlink_to(other.name)
+        with patch.object(tool, 'exec', side_effect=AssertionError('helper import attempted'), create=True), \
+             self.assertRaisesRegex(tool.PreparationError, 'trusted_path_redirected'):
+            self.probe()
+
+    def test_new_inventory_rejects_unsafe_duplicate_and_unpinned_rows(self):
+        self.bundled_tool_inventory()
+        original = list(self.inventory['files'])
+        invalid_rows = [
+            original + [dict(original[0])],
+            [{**original[0], 'path': '../outside'}, *original[1:]],
+            [{**original[0], 'sha256': 'A' * 64}, *original[1:]],
+            [{**original[0], 'mode': 777}, *original[1:]],
+        ]
+        for rows in invalid_rows:
+            self.inventory['files'] = rows
+            self.rewrite_inventory_receipt()
+            with self.subTest(rows=rows), \
+                 patch.object(tool, 'exec', side_effect=AssertionError('helper import attempted'), create=True), \
+                 self.assertRaisesRegex(tool.PreparationError, 'release_inventory_invalid'):
+                self.probe()
+
+    def test_known_rc6_standalone_profile_retains_independent_inventory_pin(self):
+        self.assertEqual(self.receipt['release_sha256'], tool.RELEASE_SHA256)
+        self.probe()
+        # The old standalone profile does not require this newer tool to be
+        # present in the installed RC6 inventory.
+        self.assertFalse((self.app / 'tools/prepare-recovery-packages.py').exists())
 
     def test_helper_changes_symlinks_and_writable_ancestors_are_rejected(self):
         target = self.app / 'bin/recovery-drill-prepare.py'
@@ -143,7 +233,8 @@ class SourceFixtures(unittest.TestCase):
         changed = self.helpers['recovery-drill-prepare.py'].replace(b'php8.3', b'php8.5')
         path = self.app / 'bin/recovery-drill-prepare.py'; path.write_bytes(changed)
         self.hashes['recovery-drill-prepare.py'] = hashlib.sha256(changed).hexdigest()
-        inventory = {**self.inventory, 'files': [{'path': 'bin/' + name, 'sha256': digest} for name, digest in self.hashes.items()]}
+        inventory = {**self.inventory, 'files': [{'path': 'bin/' + name, 'sha256': digest, 'mode': 644} for name, digest in self.hashes.items()]
+                     + [row for row in self.inventory['files'] if row['path'] == 'VERSION']}
         data = json.dumps(inventory).encode(); self.inventory_path.write_bytes(data)
         self.receipt['release_sha256'] = hashlib.sha256(data).hexdigest()
         self.state.write_text(json.dumps(self.receipt))
@@ -342,12 +433,17 @@ class PreparationFixtures(unittest.TestCase):
 
     def test_default_plan_has_no_staging_or_command_side_effects(self):
         output = io.StringIO()
-        with patch.object(tool, 'source_modules', return_value=(self.download, self.runtime)), \
+        identity = {'source_version': tool.VERSION, 'source_inventory_sha256': 'a' * 64}
+        with patch.object(tool, 'source_modules', return_value=((self.download, self.runtime), identity)), \
              patch.object(tool, 'prepare', side_effect=AssertionError('preparation attempted')), \
              patch.object(tool.subprocess, 'run', side_effect=AssertionError('host command attempted')), \
              contextlib.redirect_stdout(output):
             self.assertEqual(tool.main([]), 0)
-        self.assertEqual(json.loads(output.getvalue())['mode'], 'read-only-plan')
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['mode'], 'read-only-plan')
+        self.assertEqual(result['source_version'], tool.VERSION)
+        self.assertEqual(result['source_inventory_sha256'], 'a' * 64)
+        self.assertNotIn('source_release', result)
         self.assertFalse(self.stage.exists())
 
 

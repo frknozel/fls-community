@@ -207,9 +207,16 @@ def mount_points(required):
             continue
         if not fields[0].isdigit() or not fields[1].isdigit():
             raise StorageError('FLS mount identity is invalid')
+        separator = fields.index('-', 6)
+        if len(fields) != separator + 4:
+            raise StorageError('FLS mount metadata is invalid')
+        super_options = set(fields[separator + 3].split(','))
+        if ('rw' in super_options) == ('ro' in super_options):
+            raise StorageError('FLS filesystem access metadata is invalid')
         points.setdefault(point, []).append({
             'id': fields[0], 'parent': fields[1],
-            'device': fields[2], 'root': decode(fields[3])})
+            'device': fields[2], 'root': decode(fields[3]),
+            'super_read_only': 'ro' in super_options})
     visible = {}
     for point, mounts in points.items():
         if len({entry['id'] for entry in mounts}) != len(mounts):
@@ -273,6 +280,11 @@ def hybrid_state(config, root, root_device, root_disk):
     mounted = points.get(str(DEPOT), {})
     if mounted.get('device') != depot_device or mounted.get('root') != '/':
         raise StorageError('FLS depot partition mount is missing')
+    # ProtectSystem may make a service's depot mount read-only while selected
+    # operational binds stay writable. Only the filesystem-wide superblock
+    # flag identifies a genuinely read-only depot, including ext4 error remounts.
+    if mounted['super_read_only']:
+        raise StorageError('FLS depot filesystem is read-only')
     for source, target in bindings:
         actual_source = directory(source, depot.st_dev)
         actual_target = directory(target, depot.st_dev)

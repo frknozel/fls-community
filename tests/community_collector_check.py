@@ -81,6 +81,7 @@ class CheckedWriteCollector(unittest.TestCase):
         for name in ('raw', 'queue', 'metrics'):
             (self.base / name).mkdir(mode=0o700)
         self.nonce = secrets.token_hex(16)
+        self.expected_messages = {}
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             probe.bind(('127.0.0.1', 0))
             self.port = probe.getsockname()[1]
@@ -140,17 +141,36 @@ class CheckedWriteCollector(unittest.TestCase):
 
     def messages(self):
         found = []
-        for path in (self.base / 'raw').glob('*.jsonl'):
+        for path in sorted((self.base / 'raw').glob('*.jsonl')):
             if path.is_symlink(): continue
             self.assertLess(path.stat().st_size, 1024 * 1024)
             for line in path.read_bytes().splitlines():
                 row = json.loads(line)
                 match = re.search(r'FLS-CHECK-' + self.nonce + r'-([0-9]+)', row['raw'])
                 if match:
+                    self.assertEqual(set(row), {'schema_version', 'received_at', 'sender_ip', 'transport', 'raw'})
+                    self.assertEqual(row['schema_version'], '1')
                     self.assertEqual(row['sender_ip'], '127.0.0.1')
                     self.assertEqual(row['transport'], 'tcp')
-                    found.append(int(match[1]))
+                    self.assertIsNotNone(dt.datetime.fromisoformat(row['received_at']).tzinfo)
+                    index = int(match[1])
+                    self.assertIn(index, self.expected_messages)
+                    self.assertEqual(row['raw'].encode('utf-8'), self.expected_messages[index],
+                                     'The complete original message must survive JSON encoding, disk queuing and replay')
+                    found.append(index)
         return found
+
+    def send_messages(self, now, count):
+        variants = ('plain message', 'quotes="value" slash=\\ unicode=Türkçe ğüşİöç',
+                    'tab=\t embedded-line=\nnext line', 'trailing newline\n')
+        with socket.create_connection(('127.0.0.1', self.port), timeout=5) as connection:
+            for index in range(count):
+                message = ('<134>1 ' + now.isoformat().replace('+00:00', 'Z') +
+                           ' fixture fls - - - FLS-CHECK-' + self.nonce + '-' + str(index) +
+                           ' ' + variants[index % len(variants)]).encode('utf-8')
+                self.expected_messages[index] = message
+                connection.sendall(str(len(message)).encode() + b' ' + message)
+            connection.shutdown(socket.SHUT_WR)
 
     def private_log(self):
         data = b''
@@ -161,22 +181,27 @@ class CheckedWriteCollector(unittest.TestCase):
         return data
 
     def test_failed_dynamic_write_remains_durable_then_replays_after_restart(self):
+        self.assert_failed_output_replays('dynamic_write_enospc')
+
+    def test_missing_raw_directory_remains_durable_then_replays_after_restart(self):
+        self.assert_failed_output_replays('missing_raw_directory')
+
+    def assert_failed_output_replays(self, failure):
         now = dt.datetime.now(dt.timezone.utc)
         broken = []
-        for offset in (-1, 0, 1):
-            path = self.base / 'raw' / ((now + dt.timedelta(hours=offset)).strftime('%Y-%m-%d-%H') + '.jsonl')
-            path.symlink_to('/dev/full'); broken.append(path)
+        if failure == 'dynamic_write_enospc':
+            for offset in (-1, 0, 1):
+                path = self.base / 'raw' / ((now + dt.timedelta(hours=offset)).strftime('%Y-%m-%d-%H') + '.jsonl')
+                path.symlink_to('/dev/full'); broken.append(path)
+            error_terms = (b'write error', b'write failed', b'no space left')
+        else:
+            (self.base / 'raw').rmdir()
+            error_terms = (b'no such file or directory', b'cannot be opened')
         process = self.start()
         count = 96
-        with socket.create_connection(('127.0.0.1', self.port), timeout=5) as connection:
-            for index in range(count):
-                message = ('<134>1 ' + now.isoformat().replace('+00:00', 'Z') +
-                           ' fixture fls - - - FLS-CHECK-' + self.nonce + '-' + str(index)).encode()
-                connection.sendall(str(len(message)).encode() + b' ' + message)
-            connection.shutdown(socket.SHUT_WR)
-        wait_until(lambda: b'write error' in self.private_log().lower() or b'write failed' in self.private_log().lower()
-                   or b'no space left' in self.private_log().lower(), 10,
-                   'The injected dynamic-file write failure was not observed')
+        self.send_messages(now, count)
+        wait_until(lambda: any(term in self.private_log().lower() for term in error_terms), 10,
+                   'The injected output failure was not observed: ' + failure)
         self.assertEqual(self.messages(), [])
         self.stop(process)
         queue_files = list((self.base / 'queue').glob('fg-receive*'))
@@ -189,15 +214,27 @@ class CheckedWriteCollector(unittest.TestCase):
         self.assertIsNotNone(pending, 'A durable queue checkpoint must retain its queued message count')
         self.assertEqual(int(pending[1]), count)
         for path in broken: path.unlink()
+        if failure == 'missing_raw_directory':
+            (self.base / 'raw').mkdir(mode=0o700)
         process = self.start()
         wait_until(lambda: set(self.messages()) == set(range(count)), 15,
                    'Messages were lost when the failed output was repaired and the collector restarted')
         self.stop(process)
-        counts = collections.Counter(self.messages())
+        recovered = self.messages()
+        counts = collections.Counter(recovered)
         self.assertEqual(counts, collections.Counter(range(count)))
-        RESULT.update(tests_executed=True, configuration_validated=True, injected_dynamic_write_failure=True,
+        scenario = {'disk_queue_checkpoint_pending': count, 'recovered_after_restart': count,
+                    'unique_recovered_messages': len(counts), 'duplicate_messages': sum(counts.values())-len(counts),
+                    'complete_raw_content_verified': True, 'source_order_preserved': recovered == list(range(count))}
+        RESULT.setdefault('scenarios', {})[failure] = scenario
+        RESULT.update(tests_executed=True, configuration_validated=True,
+                      injected_dynamic_write_failure='dynamic_write_enospc' in RESULT['scenarios'],
+                      injected_missing_raw_directory='missing_raw_directory' in RESULT['scenarios'],
                       disk_queue_checkpoint_pending=count, graceful_stop=True, recovered_after_restart=count,
                       unique_recovered_messages=len(counts), duplicate_messages=sum(counts.values())-len(counts),
+                      complete_raw_content_verified=True, physical_source_order_guaranteed=False,
+                      source_order_preserved=all(row['source_order_preserved'] for row in RESULT['scenarios'].values()),
+                      payload_variants=['plain', 'quotes_backslash_unicode', 'tab_embedded_newline', 'trailing_newline'],
                       collector_sha256=hashlib.sha256(self.binary.read_bytes()).hexdigest(),
                       production_template_sha256=hashlib.sha256((ROOT / 'deploy/fortigate-rsyslog.conf').read_bytes()).hexdigest())
 
