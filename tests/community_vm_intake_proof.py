@@ -7,6 +7,7 @@ import argparse, collections, datetime as dt, hashlib, ipaddress, json, os, re, 
 from pathlib import Path
 
 RAW = Path('/srv/fls-server/raw')
+MAX_RAW_SCAN_BYTES = 256 * 1024 * 1024
 def need(value, code):
     if not value: raise ValueError(code)
 def sha(data): return hashlib.sha256(data).hexdigest()
@@ -77,7 +78,7 @@ def raw_rows(s):
             while True:
                 offset=f.tell(); line=f.readline(4000001)
                 if not line: break
-                budget+=len(line); line_no+=1; need(budget<=128*1024*1024,'fresh_vm_scan_limit')
+                budget+=len(line); line_no+=1; need(budget<=MAX_RAW_SCAN_BYTES,'fresh_vm_scan_limit')
                 if token not in line: continue
                 if not line.endswith(b'\n'): break
                 e=json.loads(line); need(str(e.get('schema_version'))=='1' and e.get('sender_ip')==s['target'] and e.get('transport')=='tcp','envelope_mismatch')

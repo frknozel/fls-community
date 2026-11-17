@@ -111,6 +111,10 @@ class Checks(unittest.TestCase):
         self.rows.pop()
         with patch.object(t.time,'monotonic',side_effect=[0,1,100]):
             with self.assertRaisesRegex(ValueError,'timeout'):self.check()
+    def test_scan_budget_exhaustion_never_returns_a_partial_proof(self):
+        size=next(self.raw.glob('*')).stat().st_size
+        with patch.object(t,'MAX_RAW_SCAN_BYTES',size-1):
+            with self.assertRaisesRegex(ValueError,'fresh_vm_scan_limit'):self.check()
     def test_incomplete_tail_waits_without_accepting_it(self):
         path=next(self.raw.glob('*')); path.write_bytes(path.read_bytes()[:-1]); self.rows.pop()
         with patch.object(t.time,'monotonic',side_effect=[0,1,100]):
