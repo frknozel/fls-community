@@ -20,7 +20,7 @@ def save(name, value):
         os.fchmod(f.fileno(),0o600); f.write(canonical(value)+b'\n'); f.flush(); os.fsync(f.fileno())
 def utc(value): return dt.datetime.fromisoformat(value).astimezone(dt.timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S.%f')
 def guard(s):
-    need(sha(read('/sys/class/dmi/id/product_uuid')).startswith(s['dmi_prefix']),'wrong_vm_dmi')
+    need(sha(read('/sys/class/dmi/id/product_uuid',4096)).startswith(s['dmi_prefix']),'wrong_vm_dmi')
     receipt=json.loads(read('/etc/fls/release-state.json'))
     need(receipt.get('installation_id')==s['installation_id'] and receipt.get('release_sha256')==s['release_manifest_sha256']
          and receipt.get('version')=='0.76.0' and receipt.get('edition')=='community' and receipt.get('schema_version')==47,'wrong_release_receipt')
@@ -29,7 +29,7 @@ def guard(s):
     ip=subprocess.run(['/usr/sbin/ip','-j','-4','address','show'],capture_output=True,timeout=10)
     need(ip.returncode==0 and len(ip.stdout)<1000000 and any(r.get('local')==s['target'] for i in json.loads(ip.stdout) for r in i.get('addr_info',[])),'receiver_not_assigned_to_local_nic')
     with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as sock: sock.bind((s['target'],0))
-    return read('/proc/sys/kernel/random/boot_id').decode().strip()
+    return read('/proc/sys/kernel/random/boot_id',4096).decode().strip()
 def active(s):
     table=json.loads(read('/etc/fortigate/fls-senders.json'))['table']
     need(any(r.get('index')==s['target'] and r.get('value')=='allow' for r in table),'use_ui_source_grant')
@@ -144,7 +144,9 @@ def main(argv=None):
                 proof=check(s,boot); save(a.command+'.json',proof); print(json.dumps({k:v for k,v in proof.items() if k!='matched'}))
         return 0
     except Exception as error:
-        print(json.dumps(dict(ok=False,error_code=str(error) if isinstance(error,ValueError) else type(error).__name__)))
+        result=dict(ok=False,error_code=str(error) if isinstance(error,ValueError) else type(error).__name__)
+        if isinstance(error,OSError): result['error_errno']=error.errno
+        print(json.dumps(result))
         return 1
 
 if __name__=='__main__': raise SystemExit(main())

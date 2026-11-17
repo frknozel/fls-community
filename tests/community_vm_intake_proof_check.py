@@ -135,13 +135,27 @@ class Checks(unittest.TestCase):
         files={'/sys/class/dmi/id/product_uuid':dmi,'/etc/fls/release-state.json':json.dumps(receipt).encode(),
                '/var/www/fls/deploy/release-files.json':inventory,'/opt/fortigate/rsyslog-8.2312.0-fg1/sbin/rsyslogd':binary,
                '/proc/sys/kernel/random/boot_id':b'boot-before\n'}
+        def bounded_read(name,limit=16000000):
+            if str(name) in ('/sys/class/dmi/id/product_uuid','/proc/sys/kernel/random/boot_id'):
+                self.assertLessEqual(limit,4096,'Kernel metadata must never use the large regular-file read size')
+            return files[str(name)]
         local=types.SimpleNamespace(returncode=0,stdout=json.dumps([{'addr_info':[{'local':self.s['target']}]}]).encode())
-        with patch.object(t,'read',side_effect=lambda name:files[str(name)]),patch.object(t.subprocess,'run',return_value=local),patch.object(t.socket,'socket') as sock:
+        with patch.object(t,'read',side_effect=bounded_read),patch.object(t.subprocess,'run',return_value=local),patch.object(t.socket,'socket') as sock:
             self.assertEqual(t.guard(self.s),'boot-before'); sock.return_value.__enter__.return_value.bind.assert_called_once_with((self.s['target'],0))
         local.stdout=b'[]'
-        with patch.object(t,'read',side_effect=lambda name:files[str(name)]),patch.object(t.subprocess,'run',return_value=local),patch.object(t.socket,'socket') as sock:
+        with patch.object(t,'read',side_effect=bounded_read),patch.object(t.subprocess,'run',return_value=local),patch.object(t.socket,'socket') as sock:
             with self.assertRaisesRegex(ValueError,'receiver_not_assigned'):t.guard(self.s)
             sock.assert_not_called()
+    def test_kernel_read_error_reports_errno_without_creating_state_or_sending(self):
+        output=io.StringIO()
+        args=['init','--target',self.s['target'],'--dmi-prefix',self.s['dmi_prefix'],
+              '--release-manifest-sha256',self.s['release_manifest_sha256'],
+              '--collector-sha256',self.s['collector_sha256'],'--installation-id',self.s['installation_id']]
+        with patch.object(t,'read',side_effect=OSError(12,'Cannot allocate memory')),patch.object(t.socket,'socket') as sock, \
+             patch.object(t,'save') as save,patch.object(t.Path,'mkdir') as mkdir,contextlib.redirect_stdout(output):
+            self.assertEqual(t.main(args),1)
+            self.assertEqual(json.loads(output.getvalue()),{'ok':False,'error_code':'OSError','error_errno':12})
+            sock.assert_not_called();save.assert_not_called();mkdir.assert_not_called()
     def test_utf8_octet_framing_uses_byte_lengths_and_roundtrips(self):
         rows=t.records(self.s)[:96]
         wire=b''.join(str(len(r['raw'].encode())).encode()+b' '+r['raw'].encode() for r in rows)
