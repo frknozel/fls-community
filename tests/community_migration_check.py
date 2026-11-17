@@ -505,8 +505,8 @@ class ScaffoldPermissionTests(unittest.TestCase):
                 private=depot/'DB-Dump/fixture-private';private.write_bytes(b'fixture-only');private.chmod(0o600)
                 leaves_before={relative:stat.S_IMODE((depot/relative).stat().st_mode) for _,relative in scopes}
                 projected={str(data/name):(depot/relative).stat().st_ino for name,relative in scopes}
-                points={str(depot):{'device':'fixture-depot','root':'/'}}
-                points.update({str(data/name):{'device':'fixture-depot','root':'/'+relative} for name,relative in scopes})
+                points={str(depot):{'device':'fixture-depot','root':'/','super_read_only':False}}
+                points.update({str(data/name):{'device':'fixture-depot','root':'/'+relative,'super_read_only':False} for name,relative in scopes})
                 config=dict(SOURCE,mode='hybrid',depot_uuid='7b762ad7-1e87-4f61-ade4-7289816cfaae',
                             depot_identity=DISK['physical_identity'],depot_path=str(depot),queue_location='system')
                 read_end,write_end=os.pipe();process=os.fork()

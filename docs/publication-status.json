@@ -2,7 +2,7 @@
   "schema": 1,
   "edition": "community",
   "version": "0.76.0",
-  "release_tag": "v0.76.0-rc.7",
+  "release_tag": "v0.76.0-rc.8",
   "license": "Apache-2.0",
   "stage": "release-candidate-partial-independent-vm-acceptance",
   "automatic_installation_available": true,
@@ -48,7 +48,7 @@
     "fix_acceptance": "user_confirmed_create_and_download"
   },
   "latest_candidate_vm_checks": {
-    "release_tag": "v0.76.0-rc.7",
+    "release_tag": "v0.76.0-rc.8",
     "clean_install": "pending",
     "real_fortigate_log_ingestion": "pending",
     "system_backup_create_and_download": "pending",
@@ -209,7 +209,8 @@
       "queue_enqueued_counter": 96,
       "recovered_after_repair_restart": 0,
       "listener_remained_open": true,
-      "fixed_in_rc7": false
+      "fixed_in_rc7": false,
+      "fixed_in_rc8": false
     },
     "rehearsal_browser": {
       "scenarios": 10,
@@ -217,5 +218,13 @@
       "passed": true
     },
     "external_vm_acceptance": "pending"
+  },
+  "ci_fixture_followup": {
+    "observed_release_tag": "v0.76.0-rc.7",
+    "fixed_in": "v0.76.0-rc.8",
+    "root_cause": "scaffold_permission_test_double_missing_super_read_only_field",
+    "application_behavior_changed": false,
+    "real_uid_drop_fixture": "passed_3_tests_zero_skips",
+    "rc7_tag_and_assets_unchanged": true
   }
 }
