@@ -191,7 +191,7 @@ class CheckedWriteCollector(unittest.TestCase):
                     found.append(index)
         return found
 
-    def send_messages(self, now, count, *, padding=0, start=0):
+    def send_messages(self, now, count, *, padding=0, start=0, progress=None):
         variants = ('plain message', 'quotes="value" slash=\\ unicode=Türkçe ğüşİöç',
                     'tab=\t embedded-line=\nnext line', 'trailing newline\n')
         with socket.create_connection(('127.0.0.1', self.port), timeout=5) as connection:
@@ -202,7 +202,11 @@ class CheckedWriteCollector(unittest.TestCase):
                            ' fixture fls - - - FLS-CHECK-' + self.nonce + '-' + str(index) +
                            ' ' + variants[index % len(variants)] + 'x' * padding).encode('utf-8')
                 self.expected_messages[index] = message
+                if progress is not None:
+                    progress(index, len(message), False)
                 connection.sendall(str(len(message)).encode() + b' ' + message)
+                if progress is not None:
+                    progress(index, len(message), True)
             connection.shutdown(socket.SHUT_WR)
 
     def private_log(self):
@@ -267,6 +271,45 @@ class CheckedWriteCollector(unittest.TestCase):
         wait_until(lambda: len(self.messages(allow_incomplete=True)) >= count, 15, 'Queued records did not recover after repairing the syscall fault')
         self.assertEqual(collections.Counter(self.messages(allow_incomplete=True)), collections.Counter(range(count)))
 
+    def capacity_failure_snapshot(self, process, progress, progress_lock, errors, reason, repair_started=None):
+        """Preserve bounded synthetic-fixture observations before cleanup repairs/stops it."""
+        now = time.monotonic()
+        with progress_lock:
+            sender = dict(progress)
+        if 'last_progress_monotonic' in sender:
+            sender['last_progress_age_seconds'] = round(now - sender['last_progress_monotonic'], 3)
+        snapshot = {'reason': reason, 'captured_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                    'seconds_after_repair': None if repair_started is None else round(now - repair_started, 3),
+                    'sender': sender, 'sender_errors': [repr(error) for error in errors],
+                    'collector_returncode': process.poll(), 'fault_gate_exists': self.fault_gate.exists(),
+                    'scope': 'private_temporary_fixture_only', 'queue_files': [],
+                    'impstats_freshness_not_assumed': True}
+        try:
+            for path in sorted((self.base / 'queue').iterdir()):
+                try:
+                    info = path.lstat()
+                except OSError:
+                    continue
+                if stat.S_ISREG(info.st_mode):
+                    snapshot['queue_files'].append({'name': path.name, 'bytes': info.st_size})
+        except OSError as error:
+            snapshot['queue_files_error'] = type(error).__name__
+        for name, operation in {
+            'raw_ids': lambda: self.messages(allow_incomplete=True), 'impstats': self.stats,
+            'fault_events': lambda: dict(collections.Counter(self.fault_records())),
+            'private_log_tail': lambda: self.private_log().decode(errors='replace')[-8192:],
+        }.items():
+            try:
+                snapshot[name] = operation()
+            except Exception as error:
+                snapshot[name + '_error'] = type(error).__name__
+        if 'raw_ids' in snapshot:
+            snapshot['raw_count'] = len(snapshot['raw_ids'])
+            snapshot['raw_duplicate_count'] = len(snapshot['raw_ids']) - len(set(snapshot['raw_ids']))
+        snapshot['queued_data_bytes'] = sum(row['bytes'] for row in snapshot['queue_files']
+                                            if re.fullmatch(r'fg-receive\.[0-9]+', row['name']))
+        return snapshot
+
     def assert_storage_fault_recovers(self, mode, *, terminate_while_faulted=False, backpressure=False, capacity=None, rollover=False):
         self.enable_fault()
         count = 128 if capacity else 96
@@ -297,14 +340,26 @@ class CheckedWriteCollector(unittest.TestCase):
             self.fault_gate.touch(mode=0o600)
         errors = []
         finished = threading.Event()
+        progress_lock = threading.Lock()
+        progress = {'completed_records': 0, 'completed_payload_bytes': 0}
+        def sender_progress(index, size, complete):
+            with progress_lock:
+                progress.update(current_frame_id=index, last_progress_monotonic=time.monotonic())
+                if complete:
+                    progress['completed_records'] += 1
+                    progress['completed_payload_bytes'] += size
+                    progress['last_completed_frame_id'] = index
         def send():
             try:
                 self.send_messages(dt.datetime.now(dt.timezone.utc), 1 if terminate_while_faulted else count,
                                    padding=128 * 1024 if backpressure or capacity or rollover else 0,
-                                   start=count - 1 if terminate_while_faulted else 0)
+                                   start=count - 1 if terminate_while_faulted else 0,
+                                   progress=sender_progress if capacity else None)
             except Exception as error:
                 errors.append(error)
             finally:
+                with progress_lock:
+                    progress['finished_monotonic'] = time.monotonic()
                 finished.set()
         sender = threading.Thread(target=send, daemon=True)
         sender.start()
@@ -338,14 +393,36 @@ class CheckedWriteCollector(unittest.TestCase):
                     pass
                 else:
                     self.fail('Collector exited while a failed synchronous queue write still held pending input')
-            queued_bytes = sum(path.stat().st_size for path in (self.base / 'queue').glob('fg-receive.[0-9]*'))
             if capacity == 'disk_capacity':
-                self.assertGreaterEqual(queued_bytes, 256 * 1024, 'The configured disk capacity was never reached')
+                # Repeated raw-output failures do not prove that a slow writer
+                # has already reached the disk cap. Observe that cause before repair.
+                try:
+                    wait_until(lambda: sum(path.stat().st_size for path in (self.base / 'queue').glob('fg-receive.[0-9]*')) >= 256 * 1024,
+                               10, 'The configured disk capacity was never reached')
+                except AssertionError:
+                    RESULT['fault_attempts'][scenario_name]['failure_before_cleanup'] = self.capacity_failure_snapshot(
+                        process, progress, progress_lock, errors, 'disk_capacity_precondition_not_reached')
+                    raise
+            queued_bytes = sum(path.stat().st_size for path in (self.base / 'queue').glob('fg-receive.[0-9]*'))
             events = self.fault_records()
             if 'short_write' in mode:
                 self.assertIn('partial_write', events)
             self.fault_gate.unlink()
-            self.assertTrue(finished.wait(30), 'TCP sender remained blocked after the queue was repaired')
+            repair_started = time.monotonic()
+            sender_finished = finished.wait(30)
+            if capacity:
+                attempt = RESULT['fault_attempts'][scenario_name]
+                with progress_lock:
+                    sender_finished_at = progress.get('finished_monotonic')
+                sender_finished = (sender_finished and sender_finished_at is not None
+                                   and sender_finished_at <= repair_started + 30)
+                attempt.update(sender_deadline_seconds=30, sender_wait_elapsed_seconds=round(time.monotonic() - repair_started, 3),
+                               sender_finished_within_deadline=sender_finished,
+                               sender_finished_after_repair_seconds=None if sender_finished_at is None else round(sender_finished_at - repair_started, 3))
+                if not sender_finished or errors:
+                    attempt['failure_before_cleanup'] = self.capacity_failure_snapshot(
+                        process, progress, progress_lock, errors, 'sender_deadline_or_send_error', repair_started)
+            self.assertTrue(sender_finished, 'TCP sender remained blocked after the queue was repaired')
             sender.join(timeout=1)
             self.assertFalse(errors, repr(errors))
             if terminate_while_faulted:
