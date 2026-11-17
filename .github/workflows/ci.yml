@@ -42,6 +42,7 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
+          /usr/bin/python3 -B tests/community_capacity_diagnostic_check.py
           /usr/bin/python3 -B tests/community_install_check.py
           /usr/bin/python3 -B tests/community_install_engine_check.py
           /usr/bin/python3 -B tests/community_disk_api_check.py
