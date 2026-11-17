@@ -11,8 +11,9 @@ the Go standard library; their source and build recipes are included.
 
 The separately executed rsyslog collector is not Apache-licensed by this
 project. Its pinned source provenance, local checked-write modification and
-GPL/LGPL notices are described in third_party/rsyslog/NOTICE. A collector binary
-is not distributed in this preparation snapshot.
+GPL/LGPL notices are described in third_party/rsyslog/NOTICE. The source checkout
+does not contain its executable; signed releases bundle the collector and attach
+its complete corresponding source archive as a separate release asset.
 
 Public timestamp trust roots retain their original issuers and provenance in
 deploy/tsa/sources.json. Provider JAR files, vendor licenses, account material
@@ -20,5 +21,6 @@ and service credits are not distributed here. The Java interoperability bridge
 is project source; it does not include the provider SDK.
 
 Python, PHP, MariaDB, nginx, OpenSSL and other system dependencies are separate
-projects with their own licenses. The preparation planner does not download or
-redistribute their packages.
+projects with their own licenses. The installation planner does not install
+them; installation and optional recovery preparation obtain Ubuntu packages
+separately from the project's signed application release.

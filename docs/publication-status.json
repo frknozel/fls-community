@@ -2,9 +2,9 @@
   "schema": 1,
   "edition": "community",
   "version": "0.76.0",
-  "release_tag": "v0.76.0-rc.8",
+  "release_tag": "v0.76.0-rc.9",
   "license": "Apache-2.0",
-  "stage": "release-candidate-partial-independent-vm-acceptance",
+  "stage": "release-candidate-independent-vm-acceptance-pending",
   "automatic_installation_available": true,
   "curl_install_command_available": true,
   "second_disk_migration_execution_available": true,
@@ -18,7 +18,7 @@
     "independent_rehearsal_ui_fix_release_acceptance",
     "optional_provider_sdk_setup_and_acceptance",
     "independent_missing_depot_fail_closed_acceptance",
-    "queue_storage_write_error_record_loss_fix"
+    "final_collector_transient_storage_fault_and_repair_acceptance"
   ],
   "independent_vm_checks": {
     "clean_install": "user_confirmed",
@@ -48,7 +48,7 @@
     "fix_acceptance": "user_confirmed_create_and_download"
   },
   "latest_candidate_vm_checks": {
-    "release_tag": "v0.76.0-rc.8",
+    "release_tag": "v0.76.0-rc.9",
     "clean_install": "pending",
     "real_fortigate_log_ingestion": "pending",
     "system_backup_create_and_download": "pending",
@@ -186,10 +186,68 @@
     "single_disk_restore_rehearsal_ui": "legacy_state_invalid_and_unapplied_collection_start_observed"
   },
   "stable_release_blockers": [
-    "queue_storage_enospc_record_loss"
+    "independent_current_candidate_clean_install_and_intake_reboot_acceptance",
+    "independent_missing_depot_and_record_completeness_acceptance",
+    "independent_new_backup_and_rehearsal_ui_acceptance"
   ],
+  "collector_durability_candidate": {
+    "release_tag": "v0.76.0-rc.9",
+    "status": "isolated_final_collector_passed_external_vm_pending",
+    "scope": "transient_queue_read_metadata_and_queue_or_raw_output_write_fault_then_repair_and_graceful_restart",
+    "queue_reader_metadata_and_read_failures": "candidate_retry_contract",
+    "ambiguous_queue_record_parse_error": "must_stop_before_logical_dequeue_advances",
+    "pending_bytes_retained_during_retry": "passed_controlled_syscall_fault_and_repair_fixtures",
+    "queue_capacity_backpressure": "passed_disk_and_message_capacity_fixtures",
+    "queue_startup_failure_must_not_bypass_disk_queue": "passed_corrupt_checkpoint_fixture",
+    "stale_queue_statistics_must_not_claim_empty_queue": "passed_19_telemetry_fixtures",
+    "shutdown_while_faulted": "may_wait_until_storage_repaired",
+    "tcp_send_completion_is_durable_receipt": false,
+    "physical_output_order_guaranteed": false,
+    "crash_or_power_loss_exactly_once_guaranteed": false,
+    "arbitrary_media_corruption_recovery_guaranteed": false,
+    "external_vm_acceptance": "pending",
+    "isolated_checks": {
+      "checked_on": "2026-11-17",
+      "tests": 23,
+      "skipped": 0,
+      "collector_sha256": "61fbe08a03e13d3f89b839756563f57ee6a8bf754f30ea092f20a51ab4a75587",
+      "patch_sha256": "4e244d4a12a810bf699d6bf6c80c7cc13a4b8500ab44f8649c2d64bff823e017",
+      "configuration_sha256": "9ede66871df05ccc860779dead3e120ec1654940f7fef403ddb492d8ac62581b",
+      "scenario_names": [
+        "checkpoint_directory_sync",
+        "checkpoint_rename",
+        "checkpoint_sync",
+        "checkpoint_write",
+        "corrupt_queue_startup",
+        "missing_raw_directory",
+        "normal_receive",
+        "queue_enospc",
+        "queue_enospc_backpressure",
+        "queue_enospc_sigterm",
+        "queue_reader_fstat",
+        "queue_reader_read",
+        "queue_reader_read_sigterm",
+        "queue_rollover_stat",
+        "queue_rollover_unlink",
+        "queue_short_write",
+        "queue_sync",
+        "raw_enospc",
+        "raw_enospc_disk_capacity",
+        "raw_enospc_message_capacity",
+        "raw_short_write",
+        "raw_short_write_sigterm",
+        "raw_sync"
+      ],
+      "production_modified": false,
+      "full_content_and_no_duplicate_comparison": true,
+      "scope": "synthetic_child_process_syscall_faults_then_repair_and_graceful_restart",
+      "real_writeback_damage_simulated": false,
+      "configuration_export_change": "documentation_only_listener_address_substitution_fixture_uses_loopback"
+    }
+  },
   "isolated_failure_checks": {
     "checked_on": "2026-11-17",
+    "observed_release_tag": "v0.76.0-rc.8",
     "scope": "temporary_filesystems_and_loopback_child_processes",
     "production_modified": false,
     "depot_missing_identity_and_bind_mismatch": "passed_guard_fixtures",

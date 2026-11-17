@@ -13,12 +13,14 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import signal
 import socket
 import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 
@@ -65,13 +67,29 @@ def own_listener(process, port):
 
 @unittest.skipUnless(PREFIX is not None, 'Explicit --collector-prefix is required for the real collector fixture')
 class CheckedWriteCollector(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        compiler = shutil.which('cc')
+        if compiler is None:
+            raise AssertionError('A C compiler is required for the opt-in syscall fault fixture')
+        cls.injector_work = tempfile.TemporaryDirectory(prefix='fls-collector-fault-module-')
+        cls.addClassCleanup(cls.injector_work.cleanup)
+        cls.collector_prefix = Path(cls.injector_work.name) / 'collector'
+        shutil.copytree(PREFIX.absolute(), cls.collector_prefix)
+        RESULT.update(collector_sha256=hashlib.sha256((cls.collector_prefix / 'sbin/rsyslogd').read_bytes()).hexdigest(),
+                      production_template_sha256=hashlib.sha256((ROOT / 'deploy/fortigate-rsyslog.conf').read_bytes()).hexdigest())
+        cls.injector = Path(cls.injector_work.name) / 'collector-fault.so'
+        subprocess.run([compiler, '-shared', '-fPIC', '-std=c11', '-Wall', '-Wextra', '-Werror',
+                        '-o', str(cls.injector), str(ROOT / 'tests/collector_fault_injector.c'), '-ldl'],
+                       check=True, capture_output=True, timeout=30)
+
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix='fls-community-collector-')
+        self.temporary = tempfile.TemporaryDirectory(prefix='fls-community-collector-', dir='/tmp')
         self.addCleanup(self.temporary.cleanup)
         self.base = Path(self.temporary.name)
         self.base.chmod(0o700)
-        self.binary = PREFIX.absolute() / 'sbin/rsyslogd'
-        self.modules = PREFIX.absolute() / 'lib/rsyslog'
+        self.binary = self.collector_prefix / 'sbin/rsyslogd'
+        self.modules = self.collector_prefix / 'lib/rsyslog'
         self.assertTrue(self.binary.is_file())
         self.assertTrue(self.modules.is_dir())
         self.assertTrue(stat.S_ISCHR(Path('/dev/full').stat().st_mode))
@@ -108,18 +126,25 @@ class CheckedWriteCollector(unittest.TestCase):
                                     timeout=15, check=False)
         self.assertEqual(validation.returncode, 0, 'The published production collector configuration must validate')
 
-    def start(self):
+    def start(self, fault=None, *, wait_for_listener=True):
         output = (self.base / ('process-' + str(len(self.processes)) + '.log')).open('wb')
         self.handles.append(output)
+        environment = dict(self.environment)
+        if fault is not None:
+            environment.update(LD_PRELOAD=str(self.injector), FLS_FIXTURE_FAULT_ROOT=str(self.base),
+                               FLS_FIXTURE_FAULT_GATE=str(self.fault_gate),
+                               FLS_FIXTURE_FAULT_EVENTS=str(self.fault_events), FLS_FIXTURE_FAULT_MODE=fault)
         process = subprocess.Popen([str(self.binary), '-M', str(self.modules), '-n', '-iNONE', '-f', str(self.config)],
                                    stdin=subprocess.DEVNULL, stdout=output, stderr=output,
-                                   env=self.environment, start_new_session=True)
+                                   env=environment, start_new_session=True)
         self.processes.append(process)
-        wait_until(lambda: own_listener(process, self.port), 10, 'fixture listener did not become ready')
+        if wait_for_listener:
+            wait_until(lambda: own_listener(process, self.port), 10, 'fixture listener did not become ready')
         return process
 
     def stop(self, process):
         if process.poll() is not None:
+            self.assertEqual(process.returncode, 0)
             return
         process.send_signal(signal.SIGTERM)
         try:
@@ -139,12 +164,18 @@ class CheckedWriteCollector(unittest.TestCase):
                     process.kill(); process.wait(timeout=5)
         for handle in self.handles: handle.close()
 
-    def messages(self):
+    def messages(self, *, allow_incomplete=False):
         found = []
         for path in sorted((self.base / 'raw').glob('*.jsonl')):
             if path.is_symlink(): continue
-            self.assertLess(path.stat().st_size, 1024 * 1024)
-            for line in path.read_bytes().splitlines():
+            self.assertLess(path.stat().st_size, 32 * 1024 * 1024)
+            data = path.read_bytes()
+            lines = data.split(b'\n')
+            if allow_incomplete:
+                lines.pop()  # Only complete rows are observable while a write is in flight.
+            else:
+                self.assertEqual(lines.pop(), b'', 'A stopped collector left an incomplete JSON row')
+            for line in lines:
                 row = json.loads(line)
                 match = re.search(r'FLS-CHECK-' + self.nonce + r'-([0-9]+)', row['raw'])
                 if match:
@@ -160,14 +191,16 @@ class CheckedWriteCollector(unittest.TestCase):
                     found.append(index)
         return found
 
-    def send_messages(self, now, count):
+    def send_messages(self, now, count, *, padding=0, start=0):
         variants = ('plain message', 'quotes="value" slash=\\ unicode=Türkçe ğüşİöç',
                     'tab=\t embedded-line=\nnext line', 'trailing newline\n')
         with socket.create_connection(('127.0.0.1', self.port), timeout=5) as connection:
-            for index in range(count):
+            connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
+            connection.settimeout(30)
+            for index in range(start, start + count):
                 message = ('<134>1 ' + now.isoformat().replace('+00:00', 'Z') +
                            ' fixture fls - - - FLS-CHECK-' + self.nonce + '-' + str(index) +
-                           ' ' + variants[index % len(variants)]).encode('utf-8')
+                           ' ' + variants[index % len(variants)] + 'x' * padding).encode('utf-8')
                 self.expected_messages[index] = message
                 connection.sendall(str(len(message)).encode() + b' ' + message)
             connection.shutdown(socket.SHUT_WR)
@@ -180,68 +213,300 @@ class CheckedWriteCollector(unittest.TestCase):
                 data += path.read_bytes()
         return data
 
+    def stats(self):
+        latest = {}
+        for line in self.private_log().splitlines():
+            offset = line.find(b'{')
+            if offset < 0:
+                continue
+            try:
+                row = json.loads(line[offset:])
+            except (ValueError, UnicodeError):
+                continue
+            if isinstance(row, dict) and 'name' in row:
+                latest[row['name']] = row
+        return latest
+
+    def assert_healthy_counters(self, count):
+        def complete():
+            rows = self.stats()
+            inputs = [row for row in rows.values() if row.get('origin') == 'imtcp']
+            queue = rows.get('fortigate', {})
+            return (len(inputs) == 1 and inputs[0].get('submitted') == count
+                    and queue.get('size') == 0 and queue.get('enqueued') == count)
+        wait_until(complete, 10, 'Healthy input/queue counters did not settle after recovery')
+        rows = self.stats()
+        queue = rows['fortigate']
+        self.assertEqual(queue.get('discarded.full'), 0)
+        self.assertEqual(queue.get('discarded.nf'), 0)
+        return {'submitted': count, 'enqueued': queue['enqueued'], 'size': queue['size'], 'full': queue['full'],
+                'discarded.full': queue['discarded.full'], 'discarded.nf': queue['discarded.nf']}
+
+    def enable_fault(self):
+        self.fault_gate = self.base / 'fault.enabled'
+        self.fault_events = self.base / 'fault.events'
+        self.fault_gate.write_text('Only this synthetic collector child is affected.\n')
+        self.fault_gate.chmod(0o600)
+        self.fault_events.write_bytes(b'')
+        self.fault_events.chmod(0o600)
+        self.config.write_text(self.config.read_text().replace('impstats" interval="60"', 'impstats" interval="1"'))
+
+    def fault_records(self):
+        return self.fault_events.read_text().splitlines()
+
+    def record_scenario(self, name, **details):
+        RESULT.setdefault('scenarios', {})[name] = details
+        RESULT.update(tests_executed=True, configuration_validated=True,
+                      collector_sha256=hashlib.sha256(self.binary.read_bytes()).hexdigest(),
+                      production_template_sha256=hashlib.sha256((ROOT / 'deploy/fortigate-rsyslog.conf').read_bytes()).hexdigest(),
+                      physical_source_order_guaranteed=False, tcp_durable_application_acknowledgement=False,
+                      injected_dynamic_write_failure='raw_enospc' in RESULT['scenarios'],
+                      injected_missing_raw_directory='missing_raw_directory' in RESULT['scenarios'])
+
+    def assert_exact_recovery(self, count):
+        wait_until(lambda: len(self.messages(allow_incomplete=True)) >= count, 15, 'Queued records did not recover after repairing the syscall fault')
+        self.assertEqual(collections.Counter(self.messages(allow_incomplete=True)), collections.Counter(range(count)))
+
+    def assert_storage_fault_recovers(self, mode, *, terminate_while_faulted=False, backpressure=False, capacity=None, rollover=False):
+        self.enable_fault()
+        count = 128 if capacity else 96
+        scenario_name = mode + ('_' + capacity if capacity else '_sigterm' if terminate_while_faulted else '_backpressure' if backpressure else '')
+        if capacity or rollover:
+            source = self.config.read_text().replace('queue.dequeueBatchSize="512"', 'queue.dequeueBatchSize="1"')
+            source = source.replace('queue.minDequeueBatchSize="64"', 'queue.minDequeueBatchSize="1"')
+            if rollover:
+                source = source.replace('queue.maxFileSize="64m"', 'queue.maxFileSize="64k"')
+            elif capacity == 'disk_capacity':
+                source = source.replace('queue.maxDiskSpace="10g"', 'queue.maxDiskSpace="256k"')
+                source = source.replace('queue.maxFileSize="64m"', 'queue.maxFileSize="64k"')
+            else:
+                # Disable the input's earlier fullDelay watermark to exercise
+                # the hard queue.size limit and its negative enqueue timeout.
+                source = source.replace('queue.type="Disk"', 'queue.type="Disk" queue.size="4"')
+                source = source.replace('FlowControl="on"', 'FlowControl="off"')
+            self.config.write_text(source)
+        if terminate_while_faulted:
+            self.fault_gate.unlink()
+        process = self.start(mode)
+        if terminate_while_faulted:
+            # TCP send completion alone does not prove collector admission.
+            # Observe 95 archived records, then fault exactly one final record.
+            self.send_messages(dt.datetime.now(dt.timezone.utc), count - 1)
+            self.assert_exact_recovery(count - 1)
+            self.assert_healthy_counters(count - 1)
+            self.fault_gate.touch(mode=0o600)
+        errors = []
+        finished = threading.Event()
+        def send():
+            try:
+                self.send_messages(dt.datetime.now(dt.timezone.utc), 1 if terminate_while_faulted else count,
+                                   padding=128 * 1024 if backpressure or capacity or rollover else 0,
+                                   start=count - 1 if terminate_while_faulted else 0)
+            except Exception as error:
+                errors.append(error)
+            finally:
+                finished.set()
+        sender = threading.Thread(target=send, daemon=True)
+        sender.start()
+        try:
+            wait_until(lambda: len(self.fault_records()) >= 2, 10, 'The requested syscall fault was not observed repeatedly: ' + mode)
+            RESULT.setdefault('fault_attempts', {})[scenario_name] = {
+                'observed_events': dict(collections.Counter(self.fault_records())), 'recovery_verified': False}
+            if rollover:
+                observed = self.messages(allow_incomplete=True)
+                self.assertLess(len(observed), count, 'Rollover cleanup fault did not hold back completion')
+                self.assertEqual(len(observed), len(set(observed)))
+            elif mode.startswith('raw_') and not capacity:
+                def pending_checkpoint():
+                    checkpoint = self.base / 'queue/fg-receive.qi'
+                    if not checkpoint.is_file():
+                        return False
+                    pending = re.search(rb'\+iQueueSize:2:[0-9]+:([0-9]+):', checkpoint.read_bytes())
+                    return pending is not None and int(pending[1]) == (1 if terminate_while_faulted else count)
+                wait_until(pending_checkpoint, 5, 'The failed raw output was acknowledged before its storage fault was repaired')
+            else:
+                self.assertEqual(self.messages(), list(range(count - 1)) if terminate_while_faulted else [],
+                                 'Output completed before the queue/storage fault was repaired')
+            if backpressure or capacity:
+                self.assertFalse(finished.wait(0.5), 'TCP sender completed the bounded stream despite a persistent storage/capacity fault')
+                self.assertFalse(errors)
+            if terminate_while_faulted:
+                process.send_signal(signal.SIGTERM)
+                try:
+                    process.wait(timeout=0.75)
+                except subprocess.TimeoutExpired:
+                    pass
+                else:
+                    self.fail('Collector exited while a failed synchronous queue write still held pending input')
+            queued_bytes = sum(path.stat().st_size for path in (self.base / 'queue').glob('fg-receive.[0-9]*'))
+            if capacity == 'disk_capacity':
+                self.assertGreaterEqual(queued_bytes, 256 * 1024, 'The configured disk capacity was never reached')
+            events = self.fault_records()
+            if 'short_write' in mode:
+                self.assertIn('partial_write', events)
+            self.fault_gate.unlink()
+            self.assertTrue(finished.wait(30), 'TCP sender remained blocked after the queue was repaired')
+            sender.join(timeout=1)
+            self.assertFalse(errors, repr(errors))
+            if terminate_while_faulted:
+                self.stop(process)
+                process = self.start()
+            self.assert_exact_recovery(count)
+            counters = None if terminate_while_faulted else self.assert_healthy_counters(count)
+            if capacity:
+                self.assertGreater(counters['full'], 0, 'The absolute queue capacity branch was not exercised')
+            self.stop(process)
+            self.assert_exact_recovery(count)
+            process = self.start()
+            wait_until(lambda: 'fortigate' in self.stats(), 5, 'Restarted collector did not publish fresh queue statistics')
+            self.stop(process)
+            self.assertEqual(collections.Counter(self.messages()), collections.Counter(range(count)),
+                             'A clean restart duplicated or lost the repaired queue output')
+            RESULT['fault_attempts'][scenario_name]['recovery_verified'] = True
+            self.record_scenario(scenario_name,
+                                 injected_fault_events=len(events), complete_raw_content_verified=True,
+                                 unique_recovered_messages=count, duplicate_messages=0, counters=counters,
+                                 backpressure_observed=bool(backpressure or capacity), configured_capacity=capacity, rollover_cleanup_fault_verified=rollover, queued_bytes_before_repair=queued_bytes,
+                                 pending_sigterm_wait_verified=terminate_while_faulted,
+                                 observed_before_fault=count - 1 if terminate_while_faulted else 0,
+                                 repaired_then_graceful_restart=True)
+        finally:
+            self.fault_gate.unlink(missing_ok=True)
+            finished.wait(2)
+
     def test_failed_dynamic_write_remains_durable_then_replays_after_restart(self):
-        self.assert_failed_output_replays('dynamic_write_enospc')
+        self.assert_storage_fault_recovers('raw_enospc')
+
+    def test_queue_enospc_remains_pending_then_recovers_exactly_once(self):
+        self.assert_storage_fault_recovers('queue_enospc')
+
+    def test_queue_partial_write_preserves_pending_suffix(self):
+        self.assert_storage_fault_recovers('queue_short_write')
+
+    def test_queue_reader_metadata_failure_remains_pending_then_recovers(self):
+        self.assert_storage_fault_recovers('queue_reader_fstat')
+
+    def test_queue_reader_io_failure_remains_pending_then_recovers(self):
+        self.assert_storage_fault_recovers('queue_reader_read')
+
+    def test_queue_sync_failure_remains_pending_then_recovers(self):
+        self.assert_storage_fault_recovers('queue_sync')
+
+    def test_checkpoint_write_failure_remains_pending_then_recovers(self):
+        self.assert_storage_fault_recovers('checkpoint_write')
+
+    def test_checkpoint_sync_failure_remains_pending_then_recovers(self):
+        self.assert_storage_fault_recovers('checkpoint_sync')
+
+    def test_checkpoint_rename_failure_remains_pending_then_recovers(self):
+        self.assert_storage_fault_recovers('checkpoint_rename')
+
+    def test_checkpoint_directory_sync_waits_before_completion(self):
+        self.assert_storage_fault_recovers('checkpoint_directory_sync')
+
+    def test_pending_queue_fault_does_not_silently_exit_on_sigterm(self):
+        self.assert_storage_fault_recovers('queue_enospc', terminate_while_faulted=True)
+
+    def test_pending_queue_reader_fault_waits_on_sigterm(self):
+        self.assert_storage_fault_recovers('queue_reader_read', terminate_while_faulted=True)
+
+    def test_pending_raw_partial_write_does_not_exit_on_sigterm(self):
+        self.assert_storage_fault_recovers('raw_short_write', terminate_while_faulted=True)
+
+    def test_queue_fault_applies_bounded_tcp_backpressure(self):
+        self.assert_storage_fault_recovers('queue_enospc', backpressure=True)
+
+    def test_configured_disk_capacity_applies_backpressure_without_drops(self):
+        self.assert_storage_fault_recovers('raw_enospc', capacity='disk_capacity')
+
+    def test_configured_message_capacity_applies_backpressure_without_drops(self):
+        self.assert_storage_fault_recovers('raw_enospc', capacity='message_capacity')
+
+    def test_spool_rollover_stat_failure_preserves_pending_records(self):
+        self.assert_storage_fault_recovers('queue_rollover_stat', rollover=True)
+
+    def test_spool_rollover_unlink_failure_preserves_pending_records(self):
+        self.assert_storage_fault_recovers('queue_rollover_unlink', rollover=True)
+
+    def test_raw_partial_write_preserves_json_and_original_bytes(self):
+        self.assert_storage_fault_recovers('raw_short_write')
+
+    def test_raw_sync_failure_waits_for_durable_repair(self):
+        self.assert_storage_fault_recovers('raw_sync')
 
     def test_missing_raw_directory_remains_durable_then_replays_after_restart(self):
         self.assert_failed_output_replays('missing_raw_directory')
 
     def assert_failed_output_replays(self, failure):
-        now = dt.datetime.now(dt.timezone.utc)
-        broken = []
-        if failure == 'dynamic_write_enospc':
-            for offset in (-1, 0, 1):
-                path = self.base / 'raw' / ((now + dt.timedelta(hours=offset)).strftime('%Y-%m-%d-%H') + '.jsonl')
-                path.symlink_to('/dev/full'); broken.append(path)
-            error_terms = (b'write error', b'write failed', b'no space left')
-        else:
-            (self.base / 'raw').rmdir()
-            error_terms = (b'no such file or directory', b'cannot be opened')
+        self.assertEqual(failure, 'missing_raw_directory')
+        self.config.write_text(self.config.read_text().replace('impstats" interval="60"', 'impstats" interval="1"'))
+        (self.base / 'raw').rmdir()
         process = self.start()
         count = 96
-        self.send_messages(now, count)
-        wait_until(lambda: any(term in self.private_log().lower() for term in error_terms), 10,
-                   'The injected output failure was not observed: ' + failure)
+        self.send_messages(dt.datetime.now(dt.timezone.utc), count)
+        wait_until(lambda: b'no such file or directory' in self.private_log().lower()
+                   or b'cannot be opened' in self.private_log().lower(), 10,
+                   'The missing raw output directory failure was not observed')
         self.assertEqual(self.messages(), [])
+        def pending_checkpoint():
+            checkpoint = self.base / 'queue/fg-receive.qi'
+            if not checkpoint.is_file():
+                return False
+            pending = re.search(rb'\+iQueueSize:2:[0-9]+:([0-9]+):', checkpoint.read_bytes())
+            return pending is not None and int(pending[1]) == count
+        wait_until(pending_checkpoint, 5, 'The queue did not retain the records while their raw directory was missing')
+        # Synchronous output retries preserve their in-flight buffer, including
+        # hour-rotation transactions. Repair before requesting a graceful stop.
+        (self.base / 'raw').mkdir(mode=0o700)
+        self.assert_exact_recovery(count)
+        counters = self.assert_healthy_counters(count)
         self.stop(process)
-        queue_files = list((self.base / 'queue').glob('fg-receive*'))
-        checkpoints = [path for path in queue_files if path.name.endswith('.qi')]
-        self.assertEqual(len(checkpoints), 1)
-        self.assertTrue(any(path.stat().st_size > 0 and not path.name.endswith('.qi') for path in queue_files))
-        checkpoint = checkpoints[0].read_bytes()
-        self.assertLess(len(checkpoint), 65536)
-        pending = re.search(rb'\+iQueueSize:2:[0-9]+:([0-9]+):', checkpoint)
-        self.assertIsNotNone(pending, 'A durable queue checkpoint must retain its queued message count')
-        self.assertEqual(int(pending[1]), count)
-        for path in broken: path.unlink()
-        if failure == 'missing_raw_directory':
-            (self.base / 'raw').mkdir(mode=0o700)
         process = self.start()
-        wait_until(lambda: set(self.messages()) == set(range(count)), 15,
-                   'Messages were lost when the failed output was repaired and the collector restarted')
         self.stop(process)
-        recovered = self.messages()
-        counts = collections.Counter(recovered)
-        self.assertEqual(counts, collections.Counter(range(count)))
-        scenario = {'disk_queue_checkpoint_pending': count, 'recovered_after_restart': count,
-                    'unique_recovered_messages': len(counts), 'duplicate_messages': sum(counts.values())-len(counts),
-                    'complete_raw_content_verified': True, 'source_order_preserved': recovered == list(range(count))}
-        RESULT.setdefault('scenarios', {})[failure] = scenario
-        RESULT.update(tests_executed=True, configuration_validated=True,
-                      injected_dynamic_write_failure='dynamic_write_enospc' in RESULT['scenarios'],
-                      injected_missing_raw_directory='missing_raw_directory' in RESULT['scenarios'],
-                      disk_queue_checkpoint_pending=count, graceful_stop=True, recovered_after_restart=count,
-                      unique_recovered_messages=len(counts), duplicate_messages=sum(counts.values())-len(counts),
-                      complete_raw_content_verified=True, physical_source_order_guaranteed=False,
-                      source_order_preserved=all(row['source_order_preserved'] for row in RESULT['scenarios'].values()),
-                      payload_variants=['plain', 'quotes_backslash_unicode', 'tab_embedded_newline', 'trailing_newline'],
-                      collector_sha256=hashlib.sha256(self.binary.read_bytes()).hexdigest(),
-                      production_template_sha256=hashlib.sha256((ROOT / 'deploy/fortigate-rsyslog.conf').read_bytes()).hexdigest())
+        self.assertEqual(collections.Counter(self.messages()), collections.Counter(range(count)))
+        self.record_scenario('missing_raw_directory', disk_queue_checkpoint_pending=count,
+                             unique_recovered_messages=count, duplicate_messages=0,
+                             complete_raw_content_verified=True, counters=counters,
+                             repaired_then_graceful_restart=True)
+
+    def test_corrupt_queue_checkpoint_aborts_before_accepting_tcp(self):
+        self.assertIn('abortOnFailedQueueStartup="on"', self.config.read_text())
+        (self.base / 'queue/fg-receive.qi').write_bytes(b'not-a-valid-rsyslog-checkpoint\n')
+        validation = subprocess.run([str(self.binary), '-M', str(self.modules), '-N1', '-f', str(self.config)],
+                                    capture_output=True, env=self.environment, timeout=15, check=False)
+        self.assertEqual(validation.returncode, 0, 'The checkpoint fault must reach runtime after valid configuration parsing')
+        process = self.start(wait_for_listener=False)
+        deadline = time.monotonic() + 10
+        while process.poll() is None and time.monotonic() < deadline:
+            try:
+                listener = own_listener(process, self.port)
+            except AssertionError:
+                if process.poll() is None:
+                    raise
+                break
+            self.assertFalse(listener, 'A failed durable queue was replaced by an accepting TCP listener')
+            time.sleep(0.01)
+        self.assertEqual(process.poll(), 1, 'Corrupt durable-queue startup must exit with failure')
+        self.assertIn(b'abortonfailedqueuestartup is set', self.private_log().lower())
+        self.record_scenario('corrupt_queue_startup', configuration_validated=True,
+                             startup_exit_code=1, listener_opened=False)
+
+    def test_normal_receiver_counters_and_original_bytes(self):
+        self.config.write_text(self.config.read_text().replace('impstats" interval="60"', 'impstats" interval="1"'))
+        process = self.start()
+        self.send_messages(dt.datetime.now(dt.timezone.utc), 96)
+        self.assert_exact_recovery(96)
+        counters = self.assert_healthy_counters(96)
+        self.stop(process)
+        self.record_scenario('normal_receive', unique_recovered_messages=96, duplicate_messages=0,
+                             complete_raw_content_verified=True, counters=counters)
 
 
 if __name__ == '__main__':
     result = unittest.main(verbosity=2, exit=False).result
-    RESULT['ok'] = result.wasSuccessful()
+    RESULT.update(ok=result.wasSuccessful(), tests_run=result.testsRun, skipped=len(result.skipped),
+                  tests_executed=result.testsRun > len(result.skipped),
+                  failures=len(result.failures), errors=len(result.errors))
     if options.output:
         options.output.write_text(json.dumps(RESULT, sort_keys=True, indent=2) + '\n')
     raise SystemExit(not result.wasSuccessful())

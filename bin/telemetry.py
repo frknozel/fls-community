@@ -110,25 +110,38 @@ def archive_state(root,now):
         except (ValueError,KeyError,TypeError):break
     return {'last_received_at':None,'last_record_age_seconds':None,'write_lag_seconds':None}
 
-def queue_state(root):
-    result={'depth':None,'stats_at':None,'enqueued_total':None,'processed_total':None,'discarded_total':None,'failed_total':None,'suspended':None}
+def queue_state(root,now=None):
+    now=time.time() if now is None else now
+    result={'depth':None,'checkpoint_pending':None,'stats_at':None,'stats_fresh':False,'enqueued_total':None,'processed_total':None,'discarded_total':None,'failed_total':None,'suspended':None}
     qi=root/'queue/fg-receive.qi'
-    if qi.exists():
-        with qi.open() as stream:match=re.search(r'\+iQueueSize:2:\d+:(\d+):',stream.read(65536))
-        if match:result['depth']=int(match[1])
+    try:
+        with qi.open() as stream:match=re.search(r'\+iQueueSize:2:\d{1,20}:(\d{1,20}):',stream.read(65536))
+        if match:result['checkpoint_pending']=int(match[1])
+    except OSError:pass
     paths=sorted((root/'metrics').glob('*-rsyslog.jsonl'))
     latest={}
     if paths:
-        for line in tail(paths[-1]):
+        try:lines=tail(paths[-1])
+        except OSError:lines=[]
+        for line in lines:
             try:
                 offset=line.index(b'{');r=json.loads(line[offset:])
-                if r.get('name') in ('fortigate','fg_raw_archive'):latest[r['name']]=(line[:offset].decode().split(' ',1)[0],r)
+                if isinstance(r,dict) and r.get('name') in ('fortigate','fg_raw_archive'):latest[r['name']]=(line[:offset].decode().split(' ',1)[0],r)
             except (ValueError,KeyError):continue
+    def fresh(at):
+        checked=backlog_time(at)
+        return checked is not None and 0<=now-checked.timestamp()<=180
+    def count(value):return value if type(value) is int and value>=0 else None
     if 'fortigate' in latest:
-        at,q=latest['fortigate'];result.update(stats_at=at,enqueued_total=q.get('enqueued'),discarded_total=q.get('discarded.full',0)+q.get('discarded.nf',0))
-        if result['depth'] is None:result['depth']=q.get('size')
+        at,q=latest['fortigate'];result['stats_at']=at
+        depth=count(q.get('size'))
+        if fresh(at) and depth is not None:
+            full=count(q.get('discarded.full'));other=count(q.get('discarded.nf'))
+            result.update(depth=depth,stats_fresh=True,enqueued_total=count(q.get('enqueued')),
+                          discarded_total=full+other if full is not None and other is not None else None)
     if 'fg_raw_archive' in latest:
-        _,a=latest['fg_raw_archive'];result.update(processed_total=a.get('processed'),failed_total=a.get('failed'),suspended=a.get('suspended'))
+        at,a=latest['fg_raw_archive']
+        if fresh(at):result.update(processed_total=count(a.get('processed')),failed_total=count(a.get('failed')),suspended=count(a.get('suspended')))
     return result
 
 def atomic(path,data):
@@ -170,7 +183,7 @@ def sample(root,runtime,proc=Path('/proc'),summary=None):
     checked=backlog_time(search.get('checked_at'))
     if checked is None or abs((at-checked).total_seconds())>10:search=index_snapshot(None)
     row={'schema':1,'at':at.isoformat(),'memory':memory((proc/'meminfo').read_text()),
-         'disks':disk_rates(counters,old.get('counters',{}),seconds),'queue':queue_state(root),'archive':archive_state(root,now),
+         'disks':disk_rates(counters,old.get('counters',{}),seconds),'queue':queue_state(root,now),'archive':archive_state(root,now),
          'mail_search_index':search,'archive_index':summary or {'status':'unavailable','pending_records':None,'checked_at':None,'updated_at':None}}
     row['capacity']=capacity_sample(root,at)
     try:update_daily(root/'metrics/telemetry/capacity',row['capacity'])

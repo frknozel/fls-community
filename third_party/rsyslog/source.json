@@ -4,7 +4,7 @@
   "source_version": "8.2312.0-3ubuntu9.4",
   "local_modification": {
     "file": "omfile-checked-writes.patch",
-    "sha256": "a3fd5483aa1b351d490486bbe10f4a9c465b088e232991ffa978663ecbea61f5"
+    "sha256": "4e244d4a12a810bf699d6bf6c80c7cc13a4b8500ab44f8649c2d64bff823e017"
   },
   "source_archives": [
     {
@@ -63,8 +63,31 @@
     "LGPL-3.0-or-later",
     "Apache-2.0"
   ],
-  "local_patch_license": "Apache-2.0",
-  "modified_upstream_file_copyright": "Copyright 2007-2023 Adiscon GmbH",
+  "local_patch_license": "Apache-2.0 AND LGPL-3.0-or-later",
+  "modified_upstream_file_copyright": "Copyright 2007-2023 Adiscon GmbH; runtime files also copyright Rainer Gerhards and Adiscon GmbH (2008-2022; see individual headers)",
   "binary_distribution": "signed_release_asset_only",
-  "build_recipe": "tools/build-components.py"
+  "build_recipe": "tools/build-components.py",
+  "modified_upstream_files": [
+    {
+      "path": "runtime/stream.c",
+      "license": "LGPL-3.0-or-later",
+      "copyright": "Copyright 2008-2022 Rainer Gerhards and Adiscon GmbH"
+    },
+    {
+      "path": "runtime/stream.h",
+      "license": "LGPL-3.0-or-later",
+      "copyright": "Copyright 2008-2018 Rainer Gerhards and Adiscon GmbH"
+    },
+    {
+      "path": "runtime/queue.c",
+      "license": "LGPL-3.0-or-later",
+      "copyright": "Copyright 2008-2019 Rainer Gerhards and Adiscon GmbH"
+    },
+    {
+      "path": "tools/omfile.c",
+      "license": "Apache-2.0",
+      "copyright": "Copyright 2007-2023 Adiscon GmbH"
+    }
+  ],
+  "local_patch_license_scope": "Per modified upstream file as recorded in modified_upstream_files and NOTICE; runtime changes retain LGPL-3.0-or-later terms."
 }

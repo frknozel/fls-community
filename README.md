@@ -2,11 +2,13 @@
 
 FortiGate loglarını toplamak, incelemek, bütünlüğünü doğrulamak ve arşivlemek için açık kaynak yazılım. FLS kaynakları **Apache-2.0** lisanslıdır; Community sürümünde süreli kullanım veya ücretli özellik kilidi yoktur.
 
-**0.76.0-rc.8 bir test sürümüdür.** Kurtarma provası panelindeki yanlış disk hatası ve uygulanmayacak log alımı düğmeleri düzeltilmiştir. Prova paneli otomatik işlerin kapalı olduğunu açıklar; ilgili API isteklerini kuyruğa yazmadan reddeder. Gelecekteki sistem yedekleri, varsa ayrı fiziksel depo mount tanımını da kapsar. Gerçek depo dosya sistemi salt okunur olduğunda depolama ön denetimi artık bunu reddeder.
+**0.76.0-rc.9, kararlı sürüm öncesi doğrulama adayıdır.** Collector düzeltmesi, kuyruğu ve dosya bilgilerini okuma ya da kuyruk/çıktı yazma ve sync işlemlerindeki geçici hatalarda bekleyen baytları koruyup depolama onarıldığında devam etmeyi hedefler. Dağıtılacak collector, yalıtılmış 23 hata senaryosundan sıfır atlamayla geçti. İmzalı paket kontrolleri ayrıca uygulanır; bağımsız VM kabulü tamamlanmadan kararlı sürüm sayılmaz.
 
-RC6'da ayrı Ubuntu VM üzerinde temiz kurulum, gerçek FortiGate log alımı, ikinci diske taşıma, yeniden başlatma sonrası alım ve logsuz yedek oluşturma doğrulandı. Bu yedek ayrı Ubuntu VM'ye tek diskte geri yüklendi; hesaplar ve ayarlar korundu, geçmiş loglar boş kaldı ve yeniden başlatmada prova paneli açıldı. Bu sonuçlar RC6'ya aittir. RC8'nin temiz kurulum ve yeni yedekle prova kabulü bekliyor. Depo kaybı, kuyruk/yazma hatası ve kayıt bütünlüğünün bağımsız VM kabulü de tamamlanmadı. [Test adımları ve sınırlar](docs/installation.md).
+Kurtarma provası panelindeki yanlış disk hatası ve uygulanmayacak log alımı düğmeleri önceki sürümlerde düzeltilmiştir. Prova paneli otomatik işlerin kapalı olduğunu açıklar; ilgili API isteklerini kuyruğa yazmadan reddeder. Yeni sistem yedekleri, varsa ayrı fiziksel depo mount tanımını da kapsar. Gerçek depo dosya sistemi salt okunur olduğunda depolama ön denetimi bunu reddeder.
 
-**Bilinen kararlı sürüm engeli:** kuyruğun kendi dosyasına yazma `ENOSPC` hatası verdiğinde kayıt kaybı yalıtılmış deneyde yeniden üretildi. RC8 bu kuyruk hatasını düzeltmez; kayıpsız teslim garantisi vermez.
+RC6'da ayrı Ubuntu VM üzerinde temiz kurulum, gerçek FortiGate log alımı, ikinci diske taşıma, yeniden başlatma sonrası alım ve logsuz yedek oluşturma doğrulandı. Bu yedek ayrı Ubuntu VM'ye tek diskte geri yüklendi; hesaplar ve ayarlar korundu, geçmiş loglar boş kaldı ve yeniden başlatmada prova paneli açıldı. Bu sonuçlar RC6'ya aittir. RC9'un temiz kurulum, depo kaybı, kuyruk/yazma hatası, kayıt bütünlüğü ve yeni yedekle prova kabulü bekliyor. [Test adımları ve sınırlar](docs/installation.md).
+
+RC8'de kuyruğun kendi dosyasına yazma `ENOSPC` hatasında kayıt kaybı yeniden üretildi. RC9 adayı bu hata için yeni collector düzeltmesini içerir; kabul kapsamı geçici hata, onarım ve kontrollü yeniden başlatmadır. Hata sürerken durdurma tamamlanmayabilir; önce depolama onarılır. TCP gönderiminin tamamlanması kalıcı teslim onayı değildir. Süreç çökmesi, güç kesintisi veya keyfi disk bozulması altında her kaydın tam bir kez teslimi garanti edilmez.
 
 ## Kurulum
 
@@ -18,7 +20,7 @@ Ubuntu **24.04 LTS amd64**, **8 GiB RAM**, en az **40 GiB boş alan**, düz **ex
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates openssl python3
 curl --fail --show-error --location --proto '=https' \
-  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.8/install.sh \
+  https://raw.githubusercontent.com/frknozel/fls-community/v0.76.0-rc.9/install.sh \
   -o fls-install.sh
 sudo bash fls-install.sh --check
 ```
@@ -41,7 +43,7 @@ Panelde ilk girişte parola değiştirilir. Log alımı başlangıçta kapalıd�
 
 Kurulumdan sonra [FortiGate bağlantı rehberini](docs/fortigate-setup.md) izleyin: boş syslog hedefini bulma, mevcut hedefleri koruyan TCP 5514 komutları, FLS kaynak/kullanıcı izinleri, ilk kaydı doğrulama ve isteğe bağlı salt okunur API hesabı adım adım anlatılır. Çoklu VDOM kapsamını kontrol edin; `root` adı tek başına VDOM modunu göstermez. Mevcut üretim API hesabını test kurulumu için yeniden kullanmayın. [VM kabul sırası](docs/installation.md#ilk-açılış-ve-kabul-sırası).
 
-Veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak kullanılır. Önceki bir RC denemesinden RC6'ya geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; kurucu mevcut kurulumu yerinde güncellemez.
+Veri kökü `/srv/fls-server`, ayrı depo diskinin bağlama noktası `/srv/fls-storage` olarak kullanılır. Önceki bir RC denemesinden RC9'a geçerken temiz Ubuntu snapshot'ına dönüp yeniden kurun; kurucu mevcut kurulumu yerinde güncellemez.
 
 Kaynak checkout'u tek başına kurulum paketi değildir; derlenmiş bileşenleri içermez. Kaynak dizinindeki `bash install.sh --plan` salt okunur ön kontrol verir. `--apply` imzalı sürüm paketini kullanır.
 

@@ -6,17 +6,32 @@ The corresponding original source and Ubuntu security-patch archive are pinned
 by filename, length and SHA-256 in source.json. Retain the Ubuntu patches;
 applying this local change to an unpatched upstream release is not equivalent.
 
-The project-local omfile-checked-writes.patch checks writeFile() return values
-and suspends a failed output transaction so the durable queue can retry it.
-It modifies tools/omfile.c, Copyright 2007-2023 Adiscon GmbH, whose header uses
-Apache-2.0; the local modification is also Apache-2.0. The complete collector
-contains independently GPL/LGPL-licensed components. COPYING, COPYING.LESSER
-and COPYING.ASL20 reproduce the supplied upstream license texts. Preserve the
-upstream source copyright and dependency notices when building/distributing.
-This component is not relicensed under the FLS Apache-2.0 license.
+Local modifications cover checked file output and stream/queue write-error
+handling. The affected upstream files retain their own copyright and terms:
 
-This preparation snapshot supplies the small modification and exact source
-provenance, not a collector executable or a guarantee of binary equivalence.
-An independent clean build and queue durability acceptance test remain required.
-No source archive from a private installation, local configuration, logs, queue
-files, or build-host metadata is included.
+- tools/omfile.c: Copyright 2007-2023 Adiscon GmbH; Apache-2.0.
+  The project-local changes to this file are also Apache-2.0.
+- runtime/stream.c: Copyright 2008-2022 Rainer Gerhards and Adiscon GmbH;
+  LGPL-3.0-or-later.
+- runtime/stream.h: Copyright 2008-2018 Rainer Gerhards and Adiscon GmbH;
+  LGPL-3.0-or-later.
+- runtime/queue.c: Copyright 2008-2019 Rainer Gerhards and Adiscon GmbH;
+  LGPL-3.0-or-later.
+
+Project-local changes to these runtime files retain LGPL-3.0-or-later terms;
+they are not covered by the FLS application's Apache-2.0 grant. The complete
+collector also contains independently GPL-licensed components. COPYING,
+COPYING.LESSER and COPYING.ASL20 reproduce the supplied upstream license texts.
+Preserve upstream copyright, Ubuntu copyright and dependency notices when
+building or distributing. This collector is not relicensed under the FLS
+Apache-2.0 license.
+
+The source checkout supplies the local patch, source provenance and build recipe.
+Signed releases bundle a separately executed collector and attach its complete
+corresponding source archive as a separate asset: original Ubuntu source,
+Ubuntu patches, local modifications, license texts and build recipe. The build
+and release tools verify these inputs against source.json and the source offer
+inventory. Runtime acceptance is recorded separately for each release; these
+notices do not claim that pending write-error tests have passed.
+No local configuration, logs, queue files or private build-host metadata is
+included in the public source offer.

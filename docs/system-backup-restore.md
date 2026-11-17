@@ -65,8 +65,8 @@ ayrı bir dosya olarak çalıştırabilirsiniz. Bu araç kurulu FLS dosyaların�
 değiştirmez; gerekli paketleri özel bir çalışma dizinine indirir, yalnız yerel
 depo kullanan ve boş paket durumuyla çalışan APT simülasyonunda bağımlılıkların
 tamamlandığını doğrular, ardından kurulu runtime yayımlayıcısını çağırır.
-Kaynak sunucuya paket kurmaz veya servis başlatıp durdurmaz. Araç RC7 kurulum
-paketinde bulunur; eski RC6 için ayrı dosya olarak da çalıştırılabilir. İmzalı
+Kaynak sunucuya paket kurmaz veya servis başlatıp durdurmaz. Araç RC7 ve sonraki
+kurulum paketlerinde bulunur; eski RC6 için ayrı dosya olarak da çalıştırılabilir. İmzalı
 RC6 paketi bu aracı içermez ve geriye dönük değiştirilmemiştir.
 
 RC6 kabul denemesinde bu araçla 173 paket ve yaklaşık 85 MiB çevrimdışı runtime
@@ -81,10 +81,10 @@ makbuzunun parmak izi gerçek kaynak envanteriyle eşleşmeli; envanterdeki büt
 dosyaların içeriği ve izinleri doğrulanmalıdır. Çalıştırılan iki yardımcı ayrıca
 araçtaki bağımsız, sabit hash'lerle eşleşmelidir. Plan çıktısı
 `source_version` ve `source_inventory_sha256` alanlarıyla doğrulanan kaynağı
-gösterir; RC7 için gerçek VM kabulü ayrıca tamamlanmalıdır. Aracı
+gösterir; her yeni aday için gerçek VM kabulü ayrıca tamamlanmalıdır. Aracı
 **çalışan Community kaynak VM'de** çalıştırın. Yeni kurtarma hedefinde
 çalıştırılmaz; hedefte FLS kurulu bulunmamalıdır.
-RC7 kaynak VM'de kurulu aracı çalıştırın:
+RC7 ve sonraki kaynak VM'lerde kurulu aracı çalıştırın:
 
 ```sh
 sudo python3 /var/www/fls/tools/prepare-recovery-packages.py --plan &&
@@ -212,7 +212,7 @@ işçi tarafından uygulanmaz. Provanın log alımını kapalı tutması bekleni
 düğmenin kullanılabilir görünmesi ve disk durumunun hata gibi sunulması RC6
 arayüzünün eksikliğidir.
 
-Geliştirme kaynağındaki düzeltme, ayrı prova web sunucusunun verdiği güvenilir
+Düzeltme, ayrı prova web sunucusunun verdiği güvenilir
 `FLS_RECOVERY_REHEARSAL` FastCGI işaretiyle prova bağlamını tanır. Disk ve log
 alımı durumları, güncel envanter doğrulanmış gibi gösterilmeden, işçilerin kapalı
 olduğunu açıklar. Log alımı, disk yönetimi ve güç işlemlerinin düğmeleri
@@ -220,14 +220,15 @@ kapatılır; korunan işlem istekleri kuyruğa yazılmadan
 `recovery_rehearsal_read_only` koduyla reddedilir. Kurtarma denetimi, bu desteği
 içeren uygulamalarda yalnız HTTP başarısını değil bu prova durumunu da doğrular.
 
-Bu düzeltme henüz yeni imzalı sürümde yayımlanmamıştır; mevcut RC6 kurulum
-paketi, alınmış yedek ve çalışan prova VM'si değiştirilmez. Eski yedek kendi
+Bu düzeltme RC7 ile imzalı sürüme alınmış ve 17 Kasım 2026'da yayımlanan
+`v0.76.0-rc.8` içinde de dağıtılmıştır. Mevcut RC6 kurulum paketi, alınmış
+yedek ve çalışan prova VM'si değiştirilmez. Eski yedek kendi
 uygulama dosyalarını geri yüklediğinden yeni kit kullanılması tek başına eski
 arayüzü güncellemez. Eski yedekle desteklenen kurtarma çalışabilir; geliştirme
 motorunun kontrol raporundaki `rehearsal_ui_supported: false`, yeni prova
 arayüzü sözleşmesinin o yedekte bulunmadığını belirtir. Düzeltilmiş arayüzün
-ayrı kabulü, bu desteği içeren yayımlanmış uygulama ve ondan alınan yedekle
-henüz yapılmamıştır.
+ayrı VM kabulü, bu desteği içeren yeni uygulamadan alınmış yeni yedekle
+henüz yapılmamıştır; imzalı yayımlanması bu kabulün yerine geçmez.
 
 Hata halinde ekrandaki sabit hata kodunu ve aşamayı saklayın. Root'a özel çalışma
 kanıtları hedefte `/var/lib/fls-recovery` altındadır; içeriklerini gelişigüzel

@@ -1,6 +1,650 @@
+--- a/runtime/queue.c
++++ b/runtime/queue.c
+@@ -87,7 +87,7 @@
+ 
+ 
+ /* forward-definitions */
+-static rsRetVal doEnqSingleObj(qqueue_t *pThis, flowControl_t flowCtlType, smsg_t *pMsg);
++static rsRetVal doEnqSingleObj(qqueue_t *pThis, flowControl_t flowCtlType, smsg_t *pMsg, int internalRequeue);
+ static rsRetVal qqueueChkPersist(qqueue_t *pThis, int nUpdates);
+ static rsRetVal RateLimiter(qqueue_t *pThis);
+ static rsRetVal qqueueChkStopWrkrDA(qqueue_t *pThis);
+@@ -786,6 +786,11 @@
+ static rsRetVal
+ queueSwitchToEmergencyMode(qqueue_t *pThis, rsRetVal initiatingError)
+ {
++	if(pThis->bSyncQueueFiles) {
++		LogError(0, initiatingError, "FLS reliable queue '%s' is unreadable; "
++			"collector stopping instead of bypassing durable storage", obj.GetName((obj_t*)pThis));
++		_exit(EXIT_FAILURE);
++	}
+ 	pThis->iQueueSize = 0;
+ 	pThis->nLogDeq = 0;
+ 
+@@ -823,6 +828,7 @@
+ 	ISOBJ_TYPE_assert(pThis, qqueue);
+ 	CHKiRet(strm.SetDir(pStrm, pThis->pszSpoolDir, pThis->lenSpoolDir));
+ 	CHKiRet(strm.SetbSync(pStrm, pThis->bSyncQueueFiles));
++	pStrm->bReliableWrite = pThis->bSyncQueueFiles;
+ finalize_it:
+ 	RETiRet;
+ }
+@@ -870,6 +876,7 @@
+ 			       (rsRetVal(*)(obj_t*,void*))qqueueLoadPersStrmInfoFixup, pThis));
+ 	/* create a duplicate for the read "pointer". */
+ 	CHKiRet(strm.Dup(pThis->tVars.disk.pReadDel, &pThis->tVars.disk.pReadDeq));
++	pThis->tVars.disk.pReadDeq->bReliableWrite = pThis->bSyncQueueFiles;
+ 	CHKiRet(strm.SetbDeleteOnClose(pThis->tVars.disk.pReadDeq, 0)); /* deq must NOT delete the files! */
+ 	CHKiRet(strm.ConstructFinalize(pThis->tVars.disk.pReadDeq));
+ 	/* if we use a crypto provider, we need to amend the objects with it's info */
+@@ -933,6 +940,7 @@
+ 		;
+ 	} else {
+ 		CHKiRet(strm.Construct(&pThis->tVars.disk.pWrite));
++		pThis->tVars.disk.pWrite->bReliableWrite = pThis->bSyncQueueFiles;
+ 		CHKiRet(strm.SetbSync(pThis->tVars.disk.pWrite, pThis->bSyncQueueFiles));
+ 		CHKiRet(strm.SetDir(pThis->tVars.disk.pWrite, pThis->pszSpoolDir, pThis->lenSpoolDir));
+ 		CHKiRet(strm.SetiMaxFiles(pThis->tVars.disk.pWrite, 10000000));
+@@ -945,6 +953,7 @@
+ 		CHKiRet(strm.ConstructFinalize(pThis->tVars.disk.pWrite));
+ 
+ 		CHKiRet(strm.Construct(&pThis->tVars.disk.pReadDeq));
++		pThis->tVars.disk.pReadDeq->bReliableWrite = pThis->bSyncQueueFiles;
+ 		CHKiRet(strm.SetbDeleteOnClose(pThis->tVars.disk.pReadDeq, 0));
+ 		CHKiRet(strm.SetDir(pThis->tVars.disk.pReadDeq, pThis->pszSpoolDir, pThis->lenSpoolDir));
+ 		CHKiRet(strm.SetiMaxFiles(pThis->tVars.disk.pReadDeq, 10000000));
+@@ -957,6 +966,7 @@
+ 		CHKiRet(strm.ConstructFinalize(pThis->tVars.disk.pReadDeq));
+ 
+ 		CHKiRet(strm.Construct(&pThis->tVars.disk.pReadDel));
++		pThis->tVars.disk.pReadDel->bReliableWrite = pThis->bSyncQueueFiles;
+ 		CHKiRet(strm.SetbSync(pThis->tVars.disk.pReadDel, pThis->bSyncQueueFiles));
+ 		CHKiRet(strm.SetbDeleteOnClose(pThis->tVars.disk.pReadDel, 1));
+ 		CHKiRet(strm.SetDir(pThis->tVars.disk.pReadDel, pThis->pszSpoolDir, pThis->lenSpoolDir));
+@@ -1193,6 +1203,14 @@
+ 	 * losing the whole process because it loops... -- rgerhards, 2008-01-03
+ 	 */
+ 	iRet = pThis->qDeq(pThis, ppMsg);
++	if(iRet != RS_RET_OK && pThis->qType == QUEUETYPE_DISK && pThis->bSyncQueueFiles) {
++		/* Reliable syscall failures retry at their unchanged stream offset.
++		 * Any remaining deserialize error is ambiguous/corrupt data, not a
++		 * successfully consumed message. Never advance its logical count. */
++		LogError(0, iRet, "FLS reliable queue '%s' cannot deserialize a pending record; "
++			"collector stopping without advancing the queue", obj.GetName((obj_t*)pThis));
++		_exit(EXIT_FAILURE);
++	}
+ 	ATOMIC_INC(&pThis->nLogDeq, &pThis->mutLogDeq);
+ 
+ 	DBGOPRINT((obj_t*) pThis, "entry deleted, size now log %d, phys %d entries\n",
+@@ -1643,8 +1661,13 @@
+ 
+ 	/* now send delete request to storage driver */
+ 	if(pThis->qType == QUEUETYPE_DISK) {
+-		strmMultiFileSeek(pThis->tVars.disk.pReadDel, pThis->tVars.disk.deqFileNumOut,
++		const rsRetVal deleteRet = strmMultiFileSeek(pThis->tVars.disk.pReadDel, pThis->tVars.disk.deqFileNumOut,
+ 				  pThis->tVars.disk.deqOffs, &bytesDel);
++		if(deleteRet != RS_RET_OK && pThis->bSyncQueueFiles) {
++			LogError(0, deleteRet, "FLS reliable queue '%s' cannot update deletion state; collector stopping",
++				obj.GetName((obj_t*)pThis));
++			_exit(EXIT_FAILURE);
++		}
+ 		/* We need to correct the on-disk file size. This time it is a bit tricky:
+ 		 * we free disk space only upon file deletion. So we need to keep track of what we
+ 		 * have read until we get an out-offset that is lower than the in-offset (which
+@@ -1748,7 +1771,7 @@
+ 		DBGPRINTF("DeleteProcessedBatch: etry %d state %d\n", i, pBatch->eltState[i]);
+ 		if(   pBatch->eltState[i] == BATCH_STATE_RDY
+ 		   || pBatch->eltState[i] == BATCH_STATE_SUB) {
+-			localRet = doEnqSingleObj(pThis, eFLOWCTL_NO_DELAY, MsgAddRef(pMsg));
++			localRet = doEnqSingleObj(pThis, eFLOWCTL_NO_DELAY, MsgAddRef(pMsg), 1);
+ 			++nEnqueued;
+ 			if(localRet != RS_RET_OK) {
+ 				DBGPRINTF("DeleteProcessedBatch: error %d re-enqueuing unprocessed "
+@@ -2150,8 +2173,11 @@
+ 				obj.GetName((obj_t*) pThis), skippedMsgs);
+ 	}
+ 
+-	/* at this spot, we may be cancelled */
+-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &iCancelStateSave);
++	/* A reliable output may hold a partially written transaction while storage
++	 * recovers. Do not cancel it and replay that prefix; the worker framework
++	 * restores cancellation only after batch ownership has been resolved. */
++	pthread_setcancelstate(pThis->bSyncQueueFiles ? PTHREAD_CANCEL_DISABLE : PTHREAD_CANCEL_ENABLE,
++		&iCancelStateSave);
+ 
+ 
+ 	pWti->pbShutdownImmediate = &pThis->bShutdownImmediate;
+@@ -2541,6 +2567,7 @@
+ 	char *tmpQIFName = NULL;
+ 	strm_t *psQIF = NULL; /* Queue Info File */
+ 	char errStr[1024];
++	unsigned attempts = 0;
+ 
+ 	assert(pThis != NULL);
+ 
+@@ -2560,7 +2587,18 @@
+ 
+ 	if((bIsCheckpoint != QUEUE_CHECKPOINT) && (getPhysicalQueueSize(pThis) == 0)) {
+ 		if(pThis->bNeedDelQIF) {
+-			unlink((char*)pThis->pszQIFNam);
++			int removed;
++			do {
++				removed = unlink((char*)pThis->pszQIFNam);
++				if(removed == -1 && errno == ENOENT)
++					removed = 0;
++				if(removed == -1 && pThis->bSyncQueueFiles)
++					strmReliableRetry(pThis->pszQIFNam, "checkpoint unlink", errno, &attempts);
++			} while(removed == -1 && pThis->bSyncQueueFiles);
++			if(pThis->bSyncQueueFiles) {
++				strmReliableRetry(pThis->pszQIFNam, "checkpoint unlink", 0, &attempts);
++				strmReliableSyncDirectory(pThis->pszSpoolDir);
++			}
+ 			pThis->bNeedDelQIF = 0;
+ 		}
+ 		/* indicate spool file needs to be deleted */
+@@ -2581,8 +2619,11 @@
+ 	if(tmpQIFName == NULL)
+ 		tmpQIFName = (char*)pThis->pszQIFNam;
+ #endif
++	if(pThis->bSyncQueueFiles && tmpQIFName == (char*)pThis->pszQIFNam)
++		strmReliableRetry(pThis->pszQIFNam, "allocate checkpoint name", ENOMEM, &attempts);
+ 
+ 	CHKiRet(strm.Construct(&psQIF));
++	psQIF->bReliableWrite = pThis->bSyncQueueFiles;
+ 	CHKiRet(strm.SettOperationsMode(psQIF, STREAMMODE_WRITE_TRUNC));
+ 	CHKiRet(strm.SetbSync(psQIF, pThis->bSyncQueueFiles));
+ 	CHKiRet(strm.SetsType(psQIF, STREAMTYPE_FILE_SINGLE));
+@@ -2606,9 +2647,20 @@
+ 	if(pThis->tVars.disk.pReadDel != NULL)
+ 		CHKiRet(strm.Serialize(pThis->tVars.disk.pReadDel, psQIF));
+ 
++	/* Destruct() historically discards flush errors. Publish only a fully
++	 * written and synced checkpoint, retaining this stream while storage fails. */
++	CHKiRet(strm.Flush(psQIF));
+ 	strm.Destruct(&psQIF);
+ 	if(tmpQIFName != (char*)pThis->pszQIFNam) { /* pointer, not string comparison! */
+-		if(rename(tmpQIFName, (char*)pThis->pszQIFNam) != 0) {
++		int renamed;
++		do {
++			renamed = rename(tmpQIFName, (char*)pThis->pszQIFNam);
++			if(renamed != 0 && pThis->bSyncQueueFiles)
++				strmReliableRetry(pThis->pszQIFNam, "checkpoint rename", errno, &attempts);
++		} while(renamed != 0 && pThis->bSyncQueueFiles);
++		if(pThis->bSyncQueueFiles)
++			strmReliableRetry(pThis->pszQIFNam, "checkpoint rename", 0, &attempts);
++		if(renamed != 0) {
+ 			rs_strerror_r(errno, errStr, sizeof(errStr));
+ 			DBGOPRINT((obj_t*) pThis,
+ 				"FATAL error: renaming temporary .qi file failed: %s\n",
+@@ -2616,6 +2668,8 @@
+ 			ABORT_FINALIZE(RS_RET_RENAME_TMP_QI_ERROR);
+ 		}
+ 	}
++	if(pThis->bSyncQueueFiles)
++		strmReliableSyncDirectory(pThis->pszSpoolDir);
+ 
+ 	/* tell the input file object that it must not delete the file on close if the queue
+ 	 * is non-empty - but only if we are not during a simple checkpoint
+@@ -2880,16 +2934,20 @@
+  * rgerhards, 2009-06-16
+  */
+ static rsRetVal
+-doEnqSingleObj(qqueue_t *pThis, flowControl_t flowCtlType, smsg_t *pMsg)
++doEnqSingleObj(qqueue_t *pThis, flowControl_t flowCtlType, smsg_t *pMsg, int internalRequeue)
+ {
+ 	DEFiRet;
+ 	int err;
+ 	struct timespec t;
++	const int reliableWait = pThis->qType == QUEUETYPE_DISK && pThis->bSyncQueueFiles && pThis->toEnq < 0;
++	const int reliableRequeue = pThis->qType == QUEUETYPE_DISK && pThis->bSyncQueueFiles && internalRequeue;
++	int capacityBlocked = 0;
+ 
+ 	STATSCOUNTER_INC(pThis->ctrEnqueued, pThis->mutCtrEnqueued);
+ 	/* first check if we need to discard this message (which will cause CHKiRet() to exit)
+ 	 */
+-	CHKiRet(qqueueChkDiscardMsg(pThis, pThis->iQueueSize, pMsg));
++	if(!reliableRequeue)
++		CHKiRet(qqueueChkDiscardMsg(pThis, pThis->iQueueSize, pMsg));
+ 
+ 	/* handle flow control
+ 	 * There are two different flow control mechanisms: basic and advanced flow control.
+@@ -2962,10 +3020,31 @@
+ 	 * is not the case, basic flow control enters the field, which means we wait for
+ 	 * the queue to become ready or drop the new message. -- rgerhards, 2008-03-14
+ 	 */
+-	while(   (pThis->iMaxQueueSize > 0 && pThis->iQueueSize >= pThis->iMaxQueueSize)
++	/* Requeue transfers an already-owned bounded batch before deleting its old
++	 * disk representation. Waiting on its own capacity here deadlocks the sole
++	 * consumer. Only this internal transfer may temporarily exceed the cap. */
++	while(!reliableRequeue && ((pThis->iMaxQueueSize > 0 && pThis->iQueueSize >= pThis->iMaxQueueSize)
+ 	      || ((pThis->qType == QUEUETYPE_DISK || pThis->bIsDA) && pThis->sizeOnDiskMax != 0
+-	      	  && pThis->tVars.disk.sizeOnDisk > pThis->sizeOnDiskMax)) {
++	      	  && pThis->tVars.disk.sizeOnDisk > pThis->sizeOnDiskMax))) {
+ 		STATSCOUNTER_INC(pThis->ctrFull, pThis->mutCtrFull);
++		if(reliableWait) {
++			if(!capacityBlocked) {
++				LogError(ENOSPC, RS_RET_QUEUE_FULL, "FLS reliable queue '%s' capacity blocked; "
++					"retaining pending data and applying backpressure; restore output before stopping",
++					obj.GetName((obj_t*)pThis));
++				capacityBlocked = 1;
++			}
++			/* timeoutComp(-1) is an already-expired deadline, not infinity.
++			 * Poll under the condition variable so consumers can drain the queue;
++			 * neither timeout nor SIGTERM may discard this owned message. */
++			timeoutComp(&t, 1000);
++			err = pthread_cond_timedwait(&pThis->notFull, pThis->mut, &t);
++			if(err != 0 && err != ETIMEDOUT) {
++				unsigned attempts = 0;
++				strmReliableRetry(pThis->pszSpoolDir, "queue capacity wait", err, &attempts);
++			}
++			continue;
++		}
+ 		if(pThis->toEnq == 0 || pThis->bEnqOnly) {
+ 			DBGOPRINT((obj_t*) pThis, "doEnqSingleObject: queue FULL - configured for immediate "
+ 					"discarding QueueSize=%d MaxQueueSize=%d sizeOnDisk=%lld "
+@@ -3003,6 +3082,9 @@
+ 		dbgoprint((obj_t*) pThis, "doEnqSingleObject: wait solved queue full condition, enqueing\n");
+ 		}
+ 	}
++	if(capacityBlocked)
++		LogMsg(0, RS_RET_OK, LOG_INFO, "FLS reliable queue '%s' capacity recovered",
++			obj.GetName((obj_t*)pThis));
+ 
+ 	/* and finally enqueue the message */
+ 	CHKiRet(qqueueAdd(pThis, pMsg));
+@@ -3051,7 +3133,7 @@
+ 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &iCancelStateSave);
+ 	d_pthread_mutex_lock(pThis->mut);
+ 	for(i = 0 ; i < pMultiSub->nElem ; ++i) {
+-		localRet = doEnqSingleObj(pThis, pMultiSub->ppMsgs[i]->flowCtlType, (void*)pMultiSub->ppMsgs[i]);
++		localRet = doEnqSingleObj(pThis, pMultiSub->ppMsgs[i]->flowCtlType, (void*)pMultiSub->ppMsgs[i], 0);
+ 		if(localRet != RS_RET_OK && localRet != RS_RET_QUEUE_FULL)
+ 			ABORT_FINALIZE(localRet);
+ 	}
+@@ -3073,17 +3155,22 @@
+ qqueueMultiEnqObjDirect(qqueue_t *pThis, multi_submit_t *pMultiSub)
+ {
+ 	int i;
++	int iCancelStateSave;
+ 	wti_t *pWti;
+ 	DEFiRet;
+ 
+ 	pWti = wtiGetDummy();
+ 	pWti->pbShutdownImmediate = &pThis->bShutdownImmediate;
++	/* Inner queue enqueue restores its caller's cancellation state. Hold the
++	 * entire parsed batch until each message has transferred ownership. */
++	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &iCancelStateSave);
+ 
+ 	for(i = 0 ; i < pMultiSub->nElem ; ++i) {
+ 		CHKiRet(qAddDirectWithWti(pThis, (void*)pMultiSub->ppMsgs[i], pWti));
+ 	}
+ 
+ finalize_it:
++	pthread_setcancelstate(iCancelStateSave, NULL);
+ 	RETiRet;
+ }
+ /* ------------------------------ END multi-enqueue functions ------------------------------ */
+@@ -3106,7 +3193,7 @@
+ 		d_pthread_mutex_lock(pThis->mut);
+ 	}
+ 
+-	CHKiRet(doEnqSingleObj(pThis, flowCtlType, pMsg));
++	CHKiRet(doEnqSingleObj(pThis, flowCtlType, pMsg, 0));
+ 
+ 	qqueueChkPersist(pThis, 1);
+ 
+--- a/runtime/stream.c
++++ b/runtime/stream.c
+@@ -95,6 +95,55 @@
+ 
+ /* methods */
+ 
++/* Reliable collector streams must not return an append/sync failure to a caller
++ * which might release the message or replay an already-written prefix. Keep the
++ * operation and its byte offset on this stack instead. SIGTERM deliberately does
++ * not turn an outstanding write into success; repair storage before stopping.
++ * Unexpected descriptor/argument errors fail closed instead of spinning forever.
++ */
++void
++strmReliableRetry(const uchar *path, const char *operation, const int err, unsigned *attempts)
++{
++	if(err == 0) {
++		if(*attempts != 0)
++			LogMsg(0, RS_RET_OK, LOG_INFO, "FLS reliable storage recovered: %s '%s'", operation, path);
++		*attempts = 0;
++		return;
++	}
++	if(err == EINTR)
++		return;
++	if(err != ENOSPC && err != EDQUOT && err != EIO && err != EROFS &&
++	   err != ENOENT && err != EACCES && err != EPERM) {
++		LogError(err, RS_RET_IO_ERROR, "FLS reliable storage fatal: %s '%s'; collector stopping", operation, path);
++		/* Do not produce a core containing source records. */
++		_exit(EXIT_FAILURE);
++	}
++	if((*attempts)++ % 60 == 0)
++		LogError(err, RS_RET_IO_ERROR, "FLS reliable storage blocked: %s '%s'; "
++			"retaining pending data and applying backpressure; restore storage before stopping", operation, path);
++	srSleep(1, 0);
++}
++
++void
++strmReliableSyncDirectory(const uchar *path)
++{
++	int directory, synced;
++	unsigned attempts = 0;
++	do {
++		directory = open((char*)path, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
++		if(directory == -1)
++			strmReliableRetry(path, "open sync directory", errno, &attempts);
++	} while(directory == -1);
++	strmReliableRetry(path, "open sync directory", 0, &attempts);
++	do {
++		synced = fsync(directory);
++		if(synced != 0)
++			strmReliableRetry(path, "directory sync", errno, &attempts);
++	} while(synced != 0);
++	strmReliableRetry(path, "directory sync", 0, &attempts);
++	close(directory);
++}
++
+ 
+ /* note: this may return NULL if not line segment is currently set  */
+ // TODO: due to the cstrFinalize() this is not totally clean, albeit for our
+@@ -284,7 +333,14 @@
+ 	}
+ 
+ 	if(pThis->bAsyncWrite)d_pthread_mutex_lock(&pThis->mut);
+-	pThis->fd = open((char*)pThis->pszCurrFName, iFlags | O_LARGEFILE, pThis->tOpenMode);
++	unsigned openAttempts = 0;
++	do {
++		pThis->fd = open((char*)pThis->pszCurrFName, iFlags | O_LARGEFILE, pThis->tOpenMode);
++		if(pThis->fd == -1 && pThis->bReliableWrite)
++			strmReliableRetry(pThis->pszCurrFName, "open", errno, &openAttempts);
++	} while(pThis->fd == -1 && pThis->bReliableWrite);
++	if(pThis->bReliableWrite)
++		strmReliableRetry(pThis->pszCurrFName, "open", 0, &openAttempts);
+ 	if(pThis->bAsyncWrite) d_pthread_mutex_unlock(&pThis->mut);
+ 
+ 	const int errno_save = errno; /* dbgprintf can mangle it! */
+@@ -306,7 +362,7 @@
+ 		pThis->noRepeatedErrorOutput = 0;
+ 	}
+ 
+-	if(pThis->tOperationsMode == STREAMMODE_READ) {
++	if(pThis->tOperationsMode == STREAMMODE_READ && !pThis->bReliableWrite) {
+ 		if(fstat(pThis->fd, &statOpen) == -1) {
+ 			DBGPRINTF("Error: cannot obtain inode# for file %s\n", pThis->pszCurrFName);
+ 			ABORT_FINALIZE(RS_RET_IO_ERROR);
+@@ -409,7 +465,24 @@
+ 
+ 	pThis->iCurrOffs = 0;
+ 	pThis->iBufPtrMax = 0;
+-	CHKiRet(getFileSize(pThis->pszCurrFName, &offset));
++	if(pThis->bReliableWrite) {
++		struct stat opened;
++		int stated;
++		unsigned attempts = 0;
++		/* Inspect the opened inode, not a path which can change independently.
++		 * A metadata failure is not an empty/consumed queue record. */
++		do {
++			stated = fstat(pThis->fd, &opened);
++			if(stated != 0)
++				strmReliableRetry(pThis->pszCurrFName, "open file metadata", errno, &attempts);
++		} while(stated != 0);
++		strmReliableRetry(pThis->pszCurrFName, "open file metadata", 0, &attempts);
++		offset = opened.st_size;
++		if(pThis->tOperationsMode == STREAMMODE_READ)
++			pThis->inode = opened.st_ino;
++	} else {
++		CHKiRet(getFileSize(pThis->pszCurrFName, &offset));
++	}
+ 	if(pThis->tOperationsMode == STREAMMODE_WRITE_APPEND) {
+ 		pThis->iCurrOffs = offset;
+ 	} else if(pThis->tOperationsMode == STREAMMODE_WRITE_TRUNC) {
+@@ -541,7 +614,20 @@
+ 					    pThis->iFileNumDigits));
+ 		}
+ 		DBGPRINTF("strmCloseFile: deleting '%s'\n", pThis->pszCurrFName);
+-		if(unlink((char*) pThis->pszCurrFName) == -1) {
++		int removed;
++		unsigned attempts = 0;
++		do {
++			removed = unlink((char*)pThis->pszCurrFName);
++			if(removed == -1 && errno == ENOENT)
++				removed = 0;
++			if(removed == -1 && pThis->bReliableWrite)
++				strmReliableRetry(pThis->pszCurrFName, "queue file unlink", errno, &attempts);
++		} while(removed == -1 && pThis->bReliableWrite);
++		if(pThis->bReliableWrite) {
++			strmReliableRetry(pThis->pszCurrFName, "queue file unlink", 0, &attempts);
++			strmReliableSyncDirectory(pThis->pszDir);
++		}
++		if(removed == -1) {
+ 			char errStr[1024];
+ 			int err = errno;
+ 			rs_strerror_r(err, errStr, sizeof(errStr));
+@@ -703,6 +789,7 @@
+ 	size_t actualDataLen;
+ 	size_t toRead;
+ 	ssize_t bytesLeft;
++	unsigned attempts = 0;
+ 
+ 	ISOBJ_TYPE_assert(pThis, strm);
+ 	/* We need to try read at least twice because we may run into EOF and need to switch files. */
+@@ -730,7 +817,32 @@
+ 			}
+ 			CHKiRet(localRet);
+ 		}
+-		iLenRead = read(pThis->fd, pThis->pIOBuf, toRead);
++		if(pThis->bReliableWrite) {
++			off64_t readOffset, positioned;
++			do {
++				readOffset = lseek64(pThis->fd, 0, SEEK_CUR);
++				if(readOffset == -1)
++					strmReliableRetry(pThis->pszCurrFName, "read position", errno, &attempts);
++			} while(readOffset == -1);
++			strmReliableRetry(pThis->pszCurrFName, "read position", 0, &attempts);
++			do {
++				iLenRead = read(pThis->fd, pThis->pIOBuf, toRead);
++				if(iLenRead < 0) {
++					strmReliableRetry(pThis->pszCurrFName, "read", errno, &attempts);
++					/* POSIX leaves the file position unspecified after error.
++					 * Re-read this buffer, never re-deserialize a partial object. */
++					do {
++						positioned = lseek64(pThis->fd, readOffset, SEEK_SET);
++						if(positioned != readOffset)
++							strmReliableRetry(pThis->pszCurrFName, "restore read position",
++								positioned == -1 ? errno : EIO, &attempts);
++					} while(positioned != readOffset);
++				}
++			} while(iLenRead < 0);
++			strmReliableRetry(pThis->pszCurrFName, "read", 0, &attempts);
++		} else {
++			iLenRead = read(pThis->fd, pThis->pIOBuf, toRead);
++		}
+ 		DBGOPRINT((obj_t*) pThis, "file %d read %ld bytes\n", pThis->fd, iLenRead);
+ 		DBGOPRINT((obj_t*) pThis, "file %d read %*s\n", pThis->fd, (unsigned) iLenRead, (char*) pThis->pIOBuf);
+ 		/* end crypto */
+@@ -1412,6 +1524,7 @@
+ 	ssize_t iTotalWritten;
+ 	ssize_t iWritten;
+ 	char *pWriteBuf;
++	unsigned attempts = 0;
+ 	DEFiRet;
+ 	ISOBJ_TYPE_assert(pThis, strm);
+ #ifdef __FreeBSD__
+@@ -1437,6 +1550,10 @@
+ 		} else
+ 		#endif /* __FreeBSD__ */
+ 		iWritten = write(pThis->fd, pWriteBuf, lenBuf);
++		if(pThis->bReliableWrite && iWritten <= 0) {
++			strmReliableRetry(pThis->pszCurrFName, "write", iWritten == 0 ? EIO : errno, &attempts);
++			continue; /* retain the exact unwritten suffix, including after a short write */
++		}
+ 		if(iWritten < 0) {
+ 			const int err = errno;
+ 			iWritten = 0; /* we have written NO bytes! */
+@@ -1479,6 +1596,8 @@
+ 		lenBuf -= iWritten;
+ 		pWriteBuf += iWritten;
+ 	} while(lenBuf > 0);	/* Warning: do..while()! */
++	if(pThis->bReliableWrite)
++		strmReliableRetry(pThis->pszCurrFName, "write", 0, &attempts);
+ 
+ 	DBGOPRINT((obj_t*) pThis, "file %d write wrote %d bytes\n", pThis->fd, (int) iWritten);
+ 
+@@ -1693,13 +1812,20 @@
+ syncFile(strm_t *pThis)
+ {
+ 	int ret;
++	unsigned attempts = 0;
+ 	DEFiRet;
+ 
+ 	if(pThis->bIsTTY)
+ 		FINALIZE; /* TTYs can not be synced */
+ 
+ 	DBGPRINTF("syncing file %d\n", pThis->fd);
+-	ret = SYNCCALL(pThis->fd);
++	do {
++		ret = SYNCCALL(pThis->fd);
++		if(ret != 0 && pThis->bReliableWrite)
++			strmReliableRetry(pThis->pszCurrFName, "file sync", errno, &attempts);
++	} while(ret != 0 && pThis->bReliableWrite);
++	if(pThis->bReliableWrite)
++		strmReliableRetry(pThis->pszCurrFName, "file sync", 0, &attempts);
+ 	if(ret != 0) {
+ 		char errStr[1024];
+ 		int err = errno;
+@@ -1708,8 +1834,23 @@
+ 			   pThis->fd, err, errStr);
+ 	}
+ 
++	if(pThis->bReliableWrite && pThis->fdDir == -1 && pThis->pszDir != NULL) {
++		do {
++			pThis->fdDir = open((char*)pThis->pszDir, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
++			if(pThis->fdDir == -1)
++				strmReliableRetry(pThis->pszDir, "open sync directory", errno, &attempts);
++		} while(pThis->fdDir == -1);
++		strmReliableRetry(pThis->pszDir, "open sync directory", 0, &attempts);
++	}
+ 	if(pThis->fdDir != -1) {
+-		if(fsync(pThis->fdDir) != 0)
++		do {
++			ret = fsync(pThis->fdDir);
++			if(ret != 0 && pThis->bReliableWrite)
++				strmReliableRetry(pThis->pszDir, "directory sync", errno, &attempts);
++		} while(ret != 0 && pThis->bReliableWrite);
++		if(pThis->bReliableWrite)
++			strmReliableRetry(pThis->pszDir, "directory sync", 0, &attempts);
++		if(ret != 0)
+ 			DBGPRINTF("stream/syncFile: fsync returned error, ignoring\n");
+ 	}
+ 
+@@ -1864,7 +2005,15 @@
+ 		CHKiRet(strmFlushInternal(pThis, 0));
+ 	}
+ 	DBGOPRINT((obj_t*) pThis, "file %d seek, pos %llu\n", pThis->fd, (long long unsigned) offs);
+-	const off64_t i = lseek64(pThis->fd, offs, SEEK_SET);
++	off64_t i;
++	unsigned attempts = 0;
++	do {
++		i = lseek64(pThis->fd, offs, SEEK_SET);
++		if(i != offs && pThis->bReliableWrite)
++			strmReliableRetry(pThis->pszCurrFName, "seek", i == -1 ? errno : EIO, &attempts);
++	} while(i != offs && pThis->bReliableWrite);
++	if(pThis->bReliableWrite)
++		strmReliableRetry(pThis->pszCurrFName, "seek", 0, &attempts);
+ 	if(i != offs) {
+ 		LogError(errno, RS_RET_IO_ERROR, "file %s: unexpected error seeking to "
+ 			"offset %lld (ret %lld) - further malfunctions may happen",
+@@ -1891,7 +2040,7 @@
+ rsRetVal
+ strmMultiFileSeek(strm_t *pThis, unsigned int FNum, off64_t offs, off64_t *bytesDel)
+ {
+-	struct stat statBuf;
++	struct stat statBuf = {0};
+ 	int skipped_files;
+ 	DEFiRet;
+ 	ISOBJ_TYPE_assert(pThis, strm);
+@@ -1905,11 +2054,20 @@
+ 	*bytesDel = 0;
+ 
+ 	while(skipped_files > 0) {
++		unsigned attempts = 0;
++		int stated, removed;
+ 		CHKiRet(genFileName(&pThis->pszCurrFName, pThis->pszDir, pThis->lenDir,
+ 				    pThis->pszFName, pThis->lenFName, pThis->iCurrFNum,
+ 				    pThis->iFileNumDigits));
+ 		dbgprintf("rger: processing file %s\n", pThis->pszCurrFName);
+-		if(stat((char*)pThis->pszCurrFName, &statBuf) != 0) {
++		do {
++			stated = stat((char*)pThis->pszCurrFName, &statBuf);
++			if(stated != 0 && pThis->bReliableWrite)
++				strmReliableRetry(pThis->pszCurrFName, "queue cleanup stat", errno, &attempts);
++		} while(stated != 0 && pThis->bReliableWrite);
++		if(pThis->bReliableWrite)
++			strmReliableRetry(pThis->pszCurrFName, "queue cleanup stat", 0, &attempts);
++		if(stated != 0) {
+ 			LogError(errno, RS_RET_IO_ERROR, "unexpected error doing a stat() "
+ 				"on file %s - further malfunctions may happen",
+ 				pThis->pszCurrFName);
+@@ -1918,11 +2076,21 @@
+ 			 * as many files as possible.
+ 			 */
+ 		}
+-		*bytesDel += statBuf.st_size;
+ 		DBGPRINTF("strmMultiFileSeek: detected new filenum, was %u, new %u, "
+ 			  "deleting '%s' (%lld bytes)\n", pThis->iCurrFNum, FNum,
+ 			  pThis->pszCurrFName, (long long) statBuf.st_size);
+-		unlink((char*)pThis->pszCurrFName);
++		do {
++			removed = unlink((char*)pThis->pszCurrFName);
++			if(removed != 0 && errno == ENOENT)
++				removed = 0;
++			if(removed != 0 && pThis->bReliableWrite)
++				strmReliableRetry(pThis->pszCurrFName, "queue cleanup unlink", errno, &attempts);
++		} while(removed != 0 && pThis->bReliableWrite);
++		if(pThis->bReliableWrite) {
++			strmReliableRetry(pThis->pszCurrFName, "queue cleanup unlink", 0, &attempts);
++			strmReliableSyncDirectory(pThis->pszDir);
++		}
++		*bytesDel += statBuf.st_size;
+ 		if(pThis->cryprov != NULL)
+ 			pThis->cryprov->DeleteStateFiles(pThis->pszCurrFName);
+ 		free(pThis->pszCurrFName);
+--- a/runtime/stream.h
++++ b/runtime/stream.h
+@@ -119,6 +119,7 @@
+ 	/* dynamic properties, valid only during file open, not to be persistet */
+ 	sbool bDisabled; /* should file no longer be written to? (currently set only if omfile file size limit fails) */
+ 	sbool bSync;	/* sync this file after every write? */
++	sbool bReliableWrite; /* collector-private: retain stream I/O until storage recovers */
+ 	sbool bReopenOnTruncate;
+ 	int rotationCheck; /* rotation check mode */
+ 	size_t sIOBufSize;/* size of IO buffer */
+@@ -250,5 +251,7 @@
+ const uchar * ATTR_NONNULL() strmGetPrevLineSegment(strm_t *const pThis);
+ const uchar * ATTR_NONNULL() strmGetPrevMsgSegment(strm_t *const pThis);
+ int ATTR_NONNULL() strmGetPrevWasNL(const strm_t *const pThis);
++void strmReliableRetry(const uchar *path, const char *operation, int err, unsigned *attempts);
++void strmReliableSyncDirectory(const uchar *path);
+ 
+ #endif /* #ifndef STREAM_H_INCLUDED */
 --- a/tools/omfile.c
 +++ b/tools/omfile.c
-@@ -1084,7 +1084,8 @@
+@@ -639,6 +639,10 @@
+ 	CHKiRet(strm.SetcompressionDriver(pData->pStrm, runModConf->compressionDriver));
+ 	CHKiRet(strm.SetCompressionWorkers(pData->pStrm, runModConf->compressionDriver_workers));
+ 	CHKiRet(strm.SetbSync(pData->pStrm, pData->bSyncFile));
++	/* Transaction replay after a partial write or sync error duplicates an
++	 * already-written prefix. Reliable synchronous output retains the operation. */
++	pData->pStrm->bReliableWrite = pData->bSyncFile && !pData->bUseAsyncWriter &&
++		!runModConf->bDynafileDoNotSuspend;
+ 	CHKiRet(strm.SetsType(pData->pStrm, STREAMTYPE_FILE_SINGLE));
+ 	CHKiRet(strm.SetiSizeLimit(pData->pStrm, pData->iSizeLimit));
+ 	if(pData->useCryprov) {
+@@ -1084,7 +1088,8 @@
  	pthread_mutex_lock(&pData->mutWrite);
  
  	for(i = 0 ; i < nParams ; ++i) {
@@ -10,7 +654,7 @@
  	}
  	/* Note: pStrm may be NULL if there was an error opening the stream */
  	/* if bFlushOnTXEnd is set, we need to flush on transaction end - in
-@@ -1101,7 +1102,10 @@
+@@ -1101,7 +1106,10 @@
  
  finalize_it:
  	pthread_mutex_unlock(&pData->mutWrite);

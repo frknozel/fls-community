@@ -52,6 +52,7 @@ jobs:
           /usr/bin/python3 -B tests/community_recovery_packages_check.py
           /usr/bin/python3 -B tests/rehearsal_context_check.py
           /usr/bin/python3 -B tests/community_edition_check.py
+          /usr/bin/python3 -B tests/telemetry_check.py
       - name: Kernel ownership and recovery fixtures in temporary directories
         run: |
           sudo /usr/bin/python3 -B tests/community_disk_inventory_check.py

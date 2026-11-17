@@ -68,7 +68,7 @@
       "required": true,
       "kind": "collector_bundle",
       "relative_path": "artifacts/linux-amd64/fls-checked-write-collector.tar.gz",
-      "sha256": "14cf137906ee792786c6a9058247920904cba2e6d97cc8f575d8c39857a0545c",
+      "sha256": "48be1afce4164c2951732bedf4ffd5513694a1528ccf6df02818d58bf6cb48ff",
       "source_status": "patch_and_provenance_in_repository",
       "source_paths": [
         "third_party/rsyslog"
