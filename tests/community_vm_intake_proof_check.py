@@ -15,6 +15,7 @@ class Checks(unittest.TestCase):
         self.s=dict(target='192.0.2.42',dmi_prefix='abcdef123456',release_manifest_sha256='a'*64,
                     collector_sha256='b'*64,installation_id='fixture-only',token='1234567890abcdef',
                     serial='RC9TEST_1234567890ABCDEF',base_ns=1794918900123456000)
+        self.api_key_count='0'  # Actual RC9 MariaDB JSON_OBJECT(COUNT(*)) result.
         t.a=types.SimpleNamespace(command='check-before',state=self.base)
         self.patches=[patch.object(t,'RAW',self.raw),patch.object(t,'active'),patch.object(t.time,'sleep')]
         for item in self.patches:item.start()
@@ -42,13 +43,22 @@ class Checks(unittest.TestCase):
         self.assertNotIn('UPDATE ',query.upper()); self.assertNotIn('INSERT ',query.upper())
         self.assertIn('--no-defaults',args[0]); self.assertIn('--protocol=SOCKET',args[0])
         device=dict(device=17,enabled=0,default=None,vd='root',peer=self.s['target'],source=self.s['target'],
-                    receiver=self.s['target'],admitted=1,keys=0)
+                    receiver=self.s['target'],admitted=1,keys=self.api_key_count)
         return types.SimpleNamespace(returncode=0,stdout=b'\n'.join(json.dumps(row).encode() for row in [device,*self.rows]))
     def check(self, boot='boot-before'):
         with patch.object(t.subprocess,'run',side_effect=self.fake_database):return t.check(self.s,boot)
     def test_exact_unicode_escaping_and_independent_index_fields_pass(self):
         result=self.check(); self.assertEqual(result['exact_raw_and_index_records'],96)
         self.assertEqual(len(result['matched']),96); self.assertEqual(result['duplicates'],0)
+    def test_api_key_zero_count_accepts_json_number_and_text(self):
+        for value in (0,'0'):
+            with self.subTest(value=value):
+                self.api_key_count=value; self.assertTrue(self.check()['ok'])
+    def test_nonzero_or_invalid_api_key_count_is_rejected(self):
+        for value in (1,'1',-1,'-1',None,False,True,0.0,1.0,'','00',' 0','0 ','0.0','+0','-0',[],{}):
+            with self.subTest(value=value):
+                self.api_key_count=value
+                with self.assertRaisesRegex(ValueError,'dummy_device_or_source_grant_incorrect'):self.check()
     def test_actual_importer_parser_preserves_all_192_original_fields(self):
         spec=importlib.util.spec_from_file_location('intake_actual_importer',ROOT/'bin/importer.py')
         importer=importlib.util.module_from_spec(spec)

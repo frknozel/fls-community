@@ -64,7 +64,8 @@ COMMIT;""".replace('SERIAL',s['serial']).replace('PAIRS',pairs)
     need(r.returncode==0 and len(r.stdout)<8000000,'read_only_socket_query_failed')
     rows=[json.loads(line) for line in r.stdout.splitlines()]; devices=[r for r in rows if 'device' in r]
     need(len(devices)==1,'create_one_separate_dummy_device'); d=devices[0]
-    need(d['enabled']==d['keys']==0 and not d['default'] and d['vd']=='root' and d['admitted']==1
+    no_keys=(type(d['keys']) is int and d['keys']==0) or (type(d['keys']) is str and d['keys']=='0')
+    need(d['enabled']==0 and no_keys and not d['default'] and d['vd']=='root' and d['admitted']==1
          and d['peer']==d['source']==d['receiver']==s['target'],'dummy_device_or_source_grant_incorrect')
     return d['device'],[r for r in rows if 'id' in r],cols
 def raw_rows(s):
