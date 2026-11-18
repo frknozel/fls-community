@@ -57,6 +57,7 @@ jobs:
       - name: Kernel ownership and recovery fixtures in temporary directories
         run: |
           sudo /usr/bin/python3 -B tests/community_vm_intake_proof_check.py
+          sudo /usr/bin/python3 -B tests/community_vm_storage_proof_check.py
           sudo /usr/bin/python3 -B tests/community_disk_inventory_check.py
           sudo /usr/bin/python3 -B tests/community_inventory_check.py
           sudo /usr/bin/python3 -B tests/community_migration_check.py
