@@ -2,6 +2,7 @@
 """Only on the identified new test VM: synthetic TCP intake, read-only DB/raw proof.
 No SQL writes, service/config changes or reboot. send-* adds test logs AND indices.
 Root-only /var/tmp state survives reboot; an attempted send is never repeated.
+recheck-after-migration only reads the existing 192-record proof and prints its result.
 """
 import argparse, collections, datetime as dt, hashlib, ipaddress, json, os, re, secrets, socket, stat, subprocess, time
 from pathlib import Path
@@ -85,15 +86,32 @@ def raw_rows(s):
                 result.append(dict(file=path.name,offset=offset,length=len(line),line=line_no,inode=info.st_ino,env=e,sha=sha(e['raw'].encode())))
     return result
 def check(s, boot):
-    expected=records(s)[:192 if a.command=='check-after' else 96]; wanted={r['raw_sha256']:r for r in expected}
+    recheck=a.command=='recheck-after-migration'
+    expected=records(s)[:192 if a.command=='check-after' or recheck else 96]; wanted={r['raw_sha256']:r for r in expected}
     before=json.loads(read(a.state/'check-before.json')) if a.command!='check-before' else None
-    if before: need(before['ok'] and before['series_sha256']==sha(canonical(s)) and before['boot_id']!=boot,'new_boot_and_matching_before_proof_required')
+    if recheck:
+        need(isinstance(before,dict) and before.get('ok') is True and before.get('stage')=='check-before'
+             and before.get('exact_raw_and_index_records')==96 and isinstance(before.get('matched'),list)
+             and len(before['matched'])==96,'matching_before_proof_required')
+    if before: need(before['ok'] and before['series_sha256']==sha(canonical(s)) and (recheck or before['boot_id']!=boot),'new_boot_and_matching_before_proof_required')
+    baseline=json.loads(read(a.state/'check-after.json')) if recheck else None
+    if recheck:
+        need(isinstance(baseline,dict) and baseline.get('ok') is True and baseline.get('stage')=='check-after'
+             and type(baseline.get('exact_raw_and_index_records')) is int and baseline['exact_raw_and_index_records']==192
+             and all(type(baseline.get(k)) is int and baseline[k]==0 for k in ('missing','duplicates'))
+             and baseline.get('series_sha256')==sha(canonical(s)) and baseline.get('serial')==s['serial']
+             and isinstance(baseline.get('matched'),list) and len(baseline['matched'])==192
+             and isinstance(baseline.get('boot_id'),str) and bool(baseline['boot_id']),'matching_pre_migration_proof_required')
     deadline=time.monotonic()+90
     while time.monotonic()<deadline:
-        active(s); device,events,cols=database(s); raw=raw_rows(s)
+        active(s); device,events,cols=database(s)
+        if recheck: need(baseline.get('device_id')==device,'pre_migration_device_changed')
+        raw=raw_rows(s)
         for hashes in (collections.Counter(r['sha'] for r in raw),collections.Counter(r['sha'] for r in events)):
             need(set(hashes)<=set(wanted) and all(n==1 for n in hashes.values()),'unexpected_corrupt_or_duplicate_series_record')
-        if len(raw)!=len(expected) or len(events)!=len(expected): time.sleep(2); continue
+        if len(raw)!=len(expected) or len(events)!=len(expected):
+            need(not recheck,'migration_record_count_mismatch')
+            time.sleep(2); continue
         positions={(r['file'],r['offset']):r for r in raw}; matched=[]
         for e in events:
             r=positions.get((e['file'],e['offset'])); w=wanted[e['sha']]
@@ -105,15 +123,17 @@ def check(s, boot):
             matched.append(dict(number=w['number'],id=e['id'],file=e['file'],offset=e['offset'],length=e['length'],sha=e['sha']))
         matched.sort(key=lambda r:r['number']); need(len({r['id'] for r in matched})==len(expected),'duplicate_index_id')
         if before: need(matched[:96]==before['matched'],'pre_reboot_records_changed_or_reindexed')
+        if recheck: need(matched==baseline['matched'],'post_migration_records_changed_or_reindexed')
         return dict(ok=True,stage=a.command,series_sha256=sha(canonical(s)),serial=s['serial'],device_id=device,boot_id=boot,
-                    exact_raw_and_index_records=len(matched),missing=0,duplicates=0,new_boot_observed=bool(before),
+                    exact_raw_and_index_records=len(matched),missing=0,duplicates=0,
+                    new_boot_observed=boot!=baseline['boot_id'] if recheck else bool(before),
                     full_raw_and_parsed_fields_verified=True,source_order_guaranteed=False,matched=matched,
                     sql_write_queries_executed=False,services_changed=False,reboot_executed=False)
     raise ValueError('timeout_waiting_for_complete_raw_and_index_series')
 def main(argv=None):
     global a
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command',choices=['init','send-before','check-before','check-reboot','send-after','check-after'])
+    p.add_argument('command',choices=['init','send-before','check-before','check-reboot','send-after','check-after','recheck-after-migration'])
     p.add_argument('--state',type=Path,default=Path('/var/tmp/fls-rc9-intake'),help='Private new state directory directly under /var/tmp.')
     for name in ('target','dmi-prefix','release-manifest-sha256','collector-sha256','installation-id'):
         p.add_argument('--'+name,help='Required for init; retained in root-owned state. '+('Local nonloopback IPv4 receiver AND sender.' if name=='target' else 'Installed inventory bytes SHA256 (receipt release_sha256).' if name=='release-manifest-sha256' else 'Expected target identity.'))
@@ -143,7 +163,9 @@ def main(argv=None):
                     sock.sendall(wire); sock.shutdown(socket.SHUT_WR)
                 print(json.dumps(dict(ok=True,sendall_returned=True,records=96,wire_bytes=len(wire),durable_application_acceptance_proven=False)))
             else:
-                proof=check(s,boot); save(a.command+'.json',proof); print(json.dumps({k:v for k,v in proof.items() if k!='matched'}))
+                proof=check(s,boot)
+                if a.command!='recheck-after-migration': save(a.command+'.json',proof)
+                print(json.dumps({k:v for k,v in proof.items() if k!='matched'}))
         return 0
     except Exception as error:
         result=dict(ok=False,error_code=str(error) if isinstance(error,ValueError) else type(error).__name__)

@@ -47,6 +47,157 @@ class Checks(unittest.TestCase):
         return types.SimpleNamespace(returncode=0,stdout=b'\n'.join(json.dumps(row).encode() for row in [device,*self.rows]))
     def check(self, boot='boot-before'):
         with patch.object(t.subprocess,'run',side_effect=self.fake_database):return t.check(self.s,boot)
+    def prepare_migration_recheck(self):
+        t.save('check-before.json',self.check())
+        t.a.command='check-after'; self.write_series(192)
+        baseline=self.check('boot-after'); t.save('check-after.json',baseline)
+        t.save('series.json',self.s)
+        for phase in ('before','after'):
+            t.save('send-'+phase+'-attempt.json',dict(boot_id='boot-after',state='send_attempt_started_never_repeat_ambiguously'))
+        t.a.command='recheck-after-migration'
+        return baseline
+    def replace_migration_baseline(self,value):
+        (self.base/'check-after.json').write_bytes(t.canonical(value))
+    def recheck_main(self,boot='boot-after'):
+        # Exercise the real CLI's ownership/permission checks on /tmp files.
+        # Only the permitted /var/tmp path's representation is mapped to this fixture.
+        base=self.base; virtual='/var/tmp/fls-rc9-intake-offline'
+        class FixtureState:
+            parent=Path('/var/tmp'); name='fls-rc9-intake-offline'
+            def is_absolute(self):return True
+            def lstat(self):return base.lstat()
+            def __truediv__(self,name):return base/name
+        def fixture_path(value):return FixtureState() if str(value)==virtual else Path(value)
+        output=io.StringIO(); real_open=os.open
+        def readonly_open(path,flags,*args,**kwargs):
+            self.assertFalse(flags&(os.O_WRONLY|os.O_RDWR|os.O_CREAT|os.O_TRUNC|os.O_APPEND),'Recheck attempted a file write')
+            return real_open(path,flags,*args,**kwargs)
+        with patch.object(t,'Path',side_effect=fixture_path),patch.object(t,'guard',return_value=boot) as guard, \
+             patch.object(t,'active') as active,patch.object(t.subprocess,'run',side_effect=self.fake_database), \
+             patch.object(t,'save',side_effect=AssertionError('state write')) as save, \
+             patch.object(t.socket,'create_connection',side_effect=AssertionError('TCP send')) as connect, \
+             patch.object(t.socket,'socket',side_effect=AssertionError('unexpected socket')) as sock, \
+             patch.object(t.os,'open',side_effect=readonly_open),contextlib.redirect_stdout(output):
+            status=t.main(['recheck-after-migration','--state',virtual])
+            save.assert_not_called(); connect.assert_not_called(); sock.assert_not_called()
+        return status,json.loads(output.getvalue()),guard,active
+    def test_migration_recheck_accepts_new_inode_without_requiring_a_new_boot(self):
+        baseline=self.prepare_migration_recheck(); path=next(self.raw.glob('*')); old_inode=path.stat().st_ino
+        data=path.read_bytes(); path.rename(self.base/'retained-before-migration.jsonl'); path.write_bytes(data)
+        self.assertNotEqual(path.stat().st_ino,old_inode)
+        for row in self.rows:row['inode']=path.stat().st_ino
+        for boot in ('boot-after','boot-before','boot-later'):
+            with self.subTest(boot=boot):
+                result=self.check(boot)
+                self.assertEqual(result['matched'],baseline['matched'])
+                self.assertEqual(result['stage'],'recheck-after-migration')
+                self.assertEqual(result['exact_raw_and_index_records'],192)
+                self.assertEqual(result['new_boot_observed'],boot!='boot-after')
+    def test_migration_recheck_rejects_reindexed_ids_in_both_halves(self):
+        self.prepare_migration_recheck()
+        for index in (0,95,96,191):
+            with self.subTest(index=index):
+                old=self.rows[index]['id']; self.rows[index]['id']='999999'
+                with self.assertRaisesRegex(ValueError,'records_changed_or_reindexed'):self.check('boot-after')
+                self.rows[index]['id']=old
+    def test_migration_recheck_rejects_shifted_offsets_in_both_halves(self):
+        self.prepare_migration_recheck(); path=next(self.raw.glob('*')); original=path.read_bytes(); rows=copy.deepcopy(self.rows)
+        extra=b'{"unrelated":true}\n'
+        for first in (0,96):
+            with self.subTest(first=first):
+                self.rows=copy.deepcopy(rows); offset=rows[first]['offset']
+                path.write_bytes(original[:offset]+extra+original[offset:])
+                for index,row in enumerate(self.rows):
+                    row['checkpoint']+=len(extra)
+                    if index>=first:row['offset']+=len(extra);row['line']+=1
+                with self.assertRaisesRegex(ValueError,'records_changed_or_reindexed'):self.check('boot-after')
+    def test_migration_recheck_requires_successful_matching_complete_baseline(self):
+        baseline=self.prepare_migration_recheck()
+        for key,value in (('ok',False),('stage','check-reboot'),('exact_raw_and_index_records',96),
+                          ('exact_raw_and_index_records',192.0),('missing',1),('duplicates',1),('missing',False),
+                          ('series_sha256','c'*64),('serial','RC9TEST_WRONG'),
+                          ('matched',baseline['matched'][:96]),('boot_id','')):
+            with self.subTest(key=key):
+                changed=copy.deepcopy(baseline); changed[key]=value; self.replace_migration_baseline(changed)
+                with self.assertRaisesRegex(ValueError,'matching_pre_migration_proof_required'):self.check('boot-after')
+        self.replace_migration_baseline({**baseline,'device_id':999})
+        with self.assertRaisesRegex(ValueError,'pre_migration_device_changed'):self.check('boot-after')
+    def test_migration_recheck_keeps_original_before_proof_protection(self):
+        self.prepare_migration_recheck(); path=self.base/'check-before.json'; before=json.loads(path.read_bytes())
+        before['series_sha256']='c'*64; path.write_bytes(t.canonical(before))
+        with self.assertRaisesRegex(ValueError,'matching_before_proof_required'):self.check('boot-before')
+        for value in ({},None,[],{**before,'ok':False},{**before,'stage':'check-reboot'},{**before,'matched':[]}):
+            with self.subTest(value=value):
+                path.write_bytes(t.canonical(value))
+                with self.assertRaisesRegex(ValueError,'matching_before_proof_required'):self.check('boot-after')
+    def test_migration_recheck_keeps_current_raw_inode_and_bytes_checks(self):
+        self.prepare_migration_recheck(); self.rows[-1]['inode']+=1
+        with self.assertRaisesRegex(ValueError,'raw_bytes_offsets_checkpoint_mismatch'):self.check('boot-after')
+        self.rows[-1]['inode']-=1; path=next(self.raw.glob('*'))
+        path.write_bytes(path.read_bytes().replace(b'FLS RC9',b'FLS XX9',1))
+        with self.assertRaisesRegex(ValueError,'corrupt'):self.check('boot-after')
+    def test_migration_recheck_keeps_duplicate_and_full_field_checks(self):
+        self.prepare_migration_recheck(); path=next(self.raw.glob('*')); original=path.read_bytes()
+        path.write_bytes(original+original.splitlines(keepends=True)[-1])
+        with self.assertRaisesRegex(ValueError,'duplicate'):self.check('boot-after')
+        path.write_bytes(original); fields=json.loads(bytes.fromhex(self.rows[-1]['fields']));fields['msg']='changed'
+        self.rows[-1]['fields']=json.dumps(fields).encode().hex()
+        with self.assertRaisesRegex(ValueError,'index_fields'):self.check('boot-after')
+    def test_migration_recheck_missing_records_fails_after_one_scan(self):
+        self.prepare_migration_recheck(); self.rows.pop()
+        with patch.object(t,'raw_rows',wraps=t.raw_rows) as scan:
+            with self.assertRaisesRegex(ValueError,'migration_record_count_mismatch'):self.check('boot-after')
+            scan.assert_called_once_with(self.s)
+    def test_migration_recheck_keeps_full_history_scan_budget(self):
+        self.prepare_migration_recheck(); size=next(self.raw.glob('*')).stat().st_size
+        with patch.object(t,'MAX_RAW_SCAN_BYTES',size-1):
+            with self.assertRaisesRegex(ValueError,'fresh_vm_scan_limit'):self.check('boot-after')
+    def test_migration_recheck_cli_only_reads_state_and_prints_without_sending(self):
+        self.prepare_migration_recheck()
+        def snapshot():return {p.name:(p.read_bytes(),p.stat().st_mode,p.stat().st_ino,p.stat().st_mtime_ns)
+                               for p in self.base.iterdir() if p.is_file()}
+        before=snapshot(); status,result,guard,active=self.recheck_main()
+        self.assertEqual(status,0); self.assertTrue(result['ok']); self.assertEqual(result['exact_raw_and_index_records'],192)
+        self.assertEqual(result['stage'],'recheck-after-migration'); self.assertNotIn('matched',result)
+        self.assertEqual(snapshot(),before)
+        guard.assert_called_once_with(self.s);active.assert_called_once_with(self.s)
+    def test_migration_recheck_cli_rejects_unsafe_root_state_or_series(self):
+        self.prepare_migration_recheck(); series=self.base/'series.json'
+        for path,mode,code in ((self.base,0o755,'unsafe_root_state'),(series,0o644,'unsafe_root_series')):
+            with self.subTest(code=code):
+                old=path.stat().st_mode;path.chmod(mode)
+                try:
+                    status,result,guard,active=self.recheck_main()
+                    self.assertEqual(status,1);self.assertEqual(result['error_code'],code)
+                    guard.assert_not_called();active.assert_not_called()
+                finally:path.chmod(old)
+    def test_migration_recheck_refuses_untrusted_baseline_metadata(self):
+        self.prepare_migration_recheck(); path=self.base/'check-after.json'
+        path.chmod(0o666)
+        with self.assertRaisesRegex(ValueError,'unsafe_root_input'):self.check('boot-after')
+        path.chmod(0o600); os.link(path,self.base/'baseline-alias.json')
+        with self.assertRaisesRegex(ValueError,'unsafe_root_input'):self.check('boot-after')
+    def test_migration_recheck_cli_rejects_nonroot_state_or_series_owners(self):
+        self.prepare_migration_recheck(); original=Path.lstat
+        for path,code in ((self.base,'unsafe_root_state'),(self.base/'series.json','unsafe_root_series')):
+            with self.subTest(path=path.name):
+                def metadata(value,*args,**kwargs):
+                    info=original(value,*args,**kwargs)
+                    return types.SimpleNamespace(st_mode=info.st_mode,st_uid=65534) if value==path else info
+                with patch.object(Path,'lstat',metadata):
+                    status,result,guard,active=self.recheck_main()
+                    self.assertEqual(status,1); self.assertEqual(result['error_code'],code)
+                    guard.assert_not_called(); active.assert_not_called()
+    def test_migration_recheck_refuses_nonroot_owned_or_symlink_baseline(self):
+        self.prepare_migration_recheck(); path=self.base/'check-after.json'; expected=path.stat(); original=os.fstat
+        def metadata(fd):
+            info=original(fd)
+            return types.SimpleNamespace(st_mode=info.st_mode,st_uid=65534,st_nlink=info.st_nlink) \
+                if (info.st_dev,info.st_ino)==(expected.st_dev,expected.st_ino) else info
+        with patch.object(t.os,'fstat',side_effect=metadata):
+            with self.assertRaisesRegex(ValueError,'unsafe_root_input'):self.check('boot-after')
+        path.rename(self.base/'retained-baseline.json'); path.symlink_to(self.base/'retained-baseline.json')
+        with self.assertRaises(OSError):self.check('boot-after')
     def test_exact_unicode_escaping_and_independent_index_fields_pass(self):
         result=self.check(); self.assertEqual(result['exact_raw_and_index_records'],96)
         self.assertEqual(len(result['matched']),96); self.assertEqual(result['duplicates'],0)
